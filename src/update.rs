@@ -1,19 +1,20 @@
 use self_update::cargo_crate_version;
 
 pub fn check_for_updates() -> Result<Option<self_update::update::Release>, Box<dyn std::error::Error>> {
-    let status = self_update::backends::github::Update::configure()
+    let current_ver = cargo_crate_version!();
+    let release = self_update::backends::github::Update::configure()
         .repo_owner("ahmedmbarektorjmene")
         .repo_name("PASSX")
         .bin_name("passx")
         .show_download_progress(true)
-        .current_version(cargo_crate_version!())
+        .current_version(current_ver)
         .build()?
-        .detect_latest_release()?;
+        .get_latest_release()?;
 
-    match status {
-        self_update::update::ReleaseStatus::UpToDate => Ok(None),
-        self_update::update::ReleaseStatus::Updated(release) => Ok(Some(release)),
-        _ => Ok(None), // Should not happen with detect_latest_release, but good to cover
+    if self_update::version::bump_is_greater(current_ver, &release.version)? {
+        Ok(Some(release))
+    } else {
+        Ok(None)
     }
 }
 

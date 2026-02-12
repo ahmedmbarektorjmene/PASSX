@@ -3,13 +3,14 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "release/v*.*.*"
+      - "canary/v*.*.*"
 
 jobs:
   release:
     name: Build & Release
     runs-on: windows-latest
-    
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -28,7 +29,7 @@ jobs:
           $certDir = Join-Path $env:runner_temp "certs"
           New-Item -ItemType Directory -Force -Path $certDir | Out-Null
           $pfxPath = Join-Path $certDir "signing_cert.pfx"
-          
+
           if ($env:SIGNING_CERT) {
               Write-Host "Using provided SIGNING_CERT secret..."
               $bytes = [System.Convert]::FromBase64String($env:SIGNING_CERT)
@@ -39,10 +40,10 @@ jobs:
               $password = ConvertTo-SecureString -String "password" -Force -AsPlainText
               Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $password
           }
-          
+
           # Import to User Store just in case
           Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation "Cert:\CurrentUser\My" -Password (ConvertTo-SecureString -String "password" -Force -AsPlainText)
-          
+
           echo "PFX_PATH=$pfxPath" >> $env:GITHUB_ENV
         env:
           SIGNING_CERT: ${{ secrets.SIGNING_CERT }}
@@ -57,7 +58,7 @@ jobs:
               # Fallback logic or error
               Write-Error "Signtool not found!"
           }
-          
+
           $files = Get-ChildItem "target\wix\*.msi"
           foreach ($file in $files) {
               Write-Host "Signing $($file.FullName)..."

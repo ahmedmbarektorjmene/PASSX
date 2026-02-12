@@ -11,3 +11,4 @@ pub mod io;
 pub mod session;
 pub mod ui;
 pub mod assets;
+pub mod update;
