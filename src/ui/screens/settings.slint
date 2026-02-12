@@ -1,0 +1,357 @@
+// Settings Screen — Separate Password and TOTP import/export
+import { Theme } from "../theme.slint";
+import {
+    PrimaryButton,
+    SecondaryButton,
+    Divider,
+    Label,
+} from "../components.slint";
+
+export component SettingsScreen inherits Rectangle {
+    callback back();
+    callback export-passwords();
+    callback export-totps();
+    callback import-passwords();
+    callback import-totps();
+    in property <string> status-message: "";
+    background: Theme.background;
+    VerticalLayout {
+        padding: 40px;
+        spacing: 24px;
+
+        // ─── Header ───
+        HorizontalLayout {
+            spacing: 14px;
+            alignment: start;
+
+            // Back button (top-left)
+            Rectangle {
+                width: 38px;
+                height: 38px;
+                border-radius: Theme.border-radius;
+                background: back-touch.has-hover ? Theme.surface-hover : Theme.surface;
+                border-width: 1px;
+                border-color: Theme.border;
+                animate background { duration: 200ms; }
+                back-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.back();
+                    }
+                }
+
+                Text {
+                    text: "←";
+                    font-size: 16px;
+                    color: Theme.text-secondary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            Rectangle {
+                width: 44px;
+                height: 44px;
+                border-radius: 12px;
+                background: Theme.accent-glow;
+                Image {
+                    source: @image-url("../../../assets/settings.svg");
+                    width: 22px;
+                    height: 22px;
+                    colorize: Theme.accent;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 2px;
+                Text {
+                    text: "Settings";
+                    font-size: Theme.font-size-h1;
+                    font-weight: 800;
+                    color: Theme.text-primary;
+                }
+
+                Text {
+                    text: "Import & export your vault data";
+                    font-size: Theme.font-size-small;
+                    color: Theme.text-muted;
+                }
+            }
+        }
+
+        Divider { }
+
+        // ─── Passwords Section ───
+        VerticalLayout {
+            spacing: 12px;
+            Text {
+                text: "PASSWORDS";
+                font-size: 10px;
+                font-weight: 800;
+                color: Theme.text-disabled;
+                letter-spacing: 1.5px;
+            }
+
+            HorizontalLayout {
+                spacing: 12px;
+
+                // Export Passwords
+                Rectangle {
+                    horizontal-stretch: 1;
+                    height: 72px;
+                    border-radius: Theme.border-radius-lg;
+                    background: ep-touch.has-hover ? Theme.surface-hover : Theme.surface;
+                    border-width: 1px;
+                    border-color: ep-touch.has-hover ? Theme.primary : Theme.border;
+                    animate background { duration: 200ms; }
+                    animate border-color { duration: 200ms; }
+                    ep-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.export-passwords();
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding: 16px;
+                        spacing: 12px;
+                        Rectangle {
+                            width: 36px;
+                            height: 36px;
+                            border-radius: 10px;
+                            background: Theme.accent-glow;
+                            Image {
+                                source: @image-url("../../../assets/copy.svg");
+                                width: 16px;
+                                height: 16px;
+                                colorize: Theme.accent;
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 2px;
+                            Text {
+                                text: "Export Passwords";
+                                font-size: 13px;
+                                font-weight: 700;
+                                color: Theme.text-primary;
+                            }
+
+                            Text {
+                                text: "Chromium-compatible CSV/JSON";
+                                font-size: 11px;
+                                color: Theme.text-muted;
+                            }
+                        }
+                    }
+                }
+
+                // Import Passwords
+                Rectangle {
+                    horizontal-stretch: 1;
+                    height: 72px;
+                    border-radius: Theme.border-radius-lg;
+                    background: ip-touch.has-hover ? Theme.surface-hover : Theme.surface;
+                    border-width: 1px;
+                    border-color: ip-touch.has-hover ? Theme.primary : Theme.border;
+                    animate background { duration: 200ms; }
+                    animate border-color { duration: 200ms; }
+                    ip-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.import-passwords();
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding: 16px;
+                        spacing: 12px;
+                        Rectangle {
+                            width: 36px;
+                            height: 36px;
+                            border-radius: 10px;
+                            background: Theme.accent-glow;
+                            Image {
+                                source: @image-url("../../../assets/folder.svg");
+                                width: 16px;
+                                height: 16px;
+                                colorize: Theme.accent;
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 2px;
+                            Text {
+                                text: "Import Passwords";
+                                font-size: 13px;
+                                font-weight: 700;
+                                color: Theme.text-primary;
+                            }
+
+                            Text {
+                                text: "From CSV or JSON file";
+                                font-size: 11px;
+                                color: Theme.text-muted;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ─── Authenticators Section ───
+        VerticalLayout {
+            spacing: 12px;
+            Text {
+                text: "AUTHENTICATORS (TOTP)";
+                font-size: 10px;
+                font-weight: 800;
+                color: Theme.text-disabled;
+                letter-spacing: 1.5px;
+            }
+
+            HorizontalLayout {
+                spacing: 12px;
+
+                // Export TOTPs
+                Rectangle {
+                    horizontal-stretch: 1;
+                    height: 72px;
+                    border-radius: Theme.border-radius-lg;
+                    background: et-touch.has-hover ? Theme.surface-hover : Theme.surface;
+                    border-width: 1px;
+                    border-color: et-touch.has-hover ? Theme.primary : Theme.border;
+                    animate background { duration: 200ms; }
+                    animate border-color { duration: 200ms; }
+                    et-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.export-totps();
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding: 16px;
+                        spacing: 12px;
+                        Rectangle {
+                            width: 36px;
+                            height: 36px;
+                            border-radius: 10px;
+                            background: Theme.accent-glow;
+                            Image {
+                                source: @image-url("../../../assets/copy.svg");
+                                width: 16px;
+                                height: 16px;
+                                colorize: Theme.accent;
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 2px;
+                            Text {
+                                text: "Export Authenticators";
+                                font-size: 13px;
+                                font-weight: 700;
+                                color: Theme.text-primary;
+                            }
+
+                            Text {
+                                text: "TOTP secrets as CSV/JSON";
+                                font-size: 11px;
+                                color: Theme.text-muted;
+                            }
+                        }
+                    }
+                }
+
+                // Import TOTPs
+                Rectangle {
+                    horizontal-stretch: 1;
+                    height: 72px;
+                    border-radius: Theme.border-radius-lg;
+                    background: it-touch.has-hover ? Theme.surface-hover : Theme.surface;
+                    border-width: 1px;
+                    border-color: it-touch.has-hover ? Theme.primary : Theme.border;
+                    animate background { duration: 200ms; }
+                    animate border-color { duration: 200ms; }
+                    it-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.import-totps();
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding: 16px;
+                        spacing: 12px;
+                        Rectangle {
+                            width: 36px;
+                            height: 36px;
+                            border-radius: 10px;
+                            background: Theme.accent-glow;
+                            Image {
+                                source: @image-url("../../../assets/folder.svg");
+                                width: 16px;
+                                height: 16px;
+                                colorize: Theme.accent;
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 2px;
+                            Text {
+                                text: "Import Authenticators";
+                                font-size: 13px;
+                                font-weight: 700;
+                                color: Theme.text-primary;
+                            }
+
+                            Text {
+                                text: "From CSV or JSON file";
+                                font-size: 11px;
+                                color: Theme.text-muted;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ─── Status Feedback ───
+        if (root.status-message != ""): Rectangle {
+            height: 40px;
+            border-radius: Theme.border-radius;
+            background: Theme.success-soft;
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                spacing: 8px;
+                alignment: start;
+                Text {
+                    text: "✓";
+                    font-size: 13px;
+                    color: Theme.success;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: root.status-message;
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: Theme.success;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // Spacer
+        Rectangle {
+            vertical-stretch: 1;
+        }
+    }
+}

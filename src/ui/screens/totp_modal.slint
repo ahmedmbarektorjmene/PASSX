@@ -1,0 +1,373 @@
+// TOTP Add/Edit Modal — with QR Code Scanning
+import { Theme } from "../theme.slint";
+import {
+    PrimaryButton,
+    SecondaryButton,
+    Divider,
+    Label,
+} from "../components.slint";
+import { ScrollView, LineEdit } from "std-widgets.slint";
+
+export component TotpModal inherits Rectangle {
+    in-out property <string> edit-id: "";
+    in-out property <string> name: "";
+    in-out property <string> issuer: "";
+    in-out property <string> secret: "";
+
+    // QR scan inputs from parent
+    in property <string> scan-error: "";
+    in property <string> scanned-account: "";
+    in property <string> scanned-secret: "";
+    in property <string> scanned-issuer: "";
+    callback save(string, string, string, string); // id, name, secret, issuer
+    callback close;
+    callback scan-screen();
+    callback scan-clipboard();
+    callback scan-file();
+
+    // Auto-fill when scanned data arrives
+    changed scanned-secret => {
+        if (scanned-secret != "") {
+            root.secret = root.scanned-secret;
+            if (root.scanned-account != "") {
+                root.name = root.scanned-account;
+            }
+            if (root.scanned-issuer != "") {
+                root.issuer = root.scanned-issuer;
+            }
+        }
+    }
+    background: rgba(0, 0, 0, 0.6);
+    TouchArea {
+        clicked => {
+            root.close();
+        }
+    }
+
+    Rectangle {
+        width: 480px;
+        height: 580px;
+        background: Theme.surface;
+        border-radius: Theme.border-radius-xl;
+        border-width: 1px;
+        border-color: Theme.border;
+        TouchArea { }
+
+        VerticalLayout {
+            padding: 28px;
+            spacing: 18px;
+
+            // ─── Modal Header ───
+            HorizontalLayout {
+                spacing: 12px;
+                Rectangle {
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 10px;
+                    background: Theme.accent-glow;
+                    Image {
+                        source: @image-url("../../../assets/shield.svg");
+                        width: 20px;
+                        height: 20px;
+                        colorize: Theme.accent;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 2px;
+                    Text {
+                        text: root.edit-id == "" ? "Add Authenticator" : "Edit Authenticator";
+                        font-size: Theme.font-size-h2;
+                        font-weight: 800;
+                        color: Theme.text-primary;
+                    }
+
+                    Text {
+                        text: root.edit-id == "" ? "Scan a QR code or enter details manually" : "Update authenticator details";
+                        font-size: Theme.font-size-small;
+                        color: Theme.text-muted;
+                    }
+                }
+            }
+
+            Divider { }
+
+            // ─── QR Code Scan Section ───
+            VerticalLayout {
+                spacing: 10px;
+                Text {
+                    text: "SCAN QR CODE";
+                    font-size: 9px;
+                    font-weight: 800;
+                    color: Theme.text-disabled;
+                    letter-spacing: 1.5px;
+                }
+
+                HorizontalLayout {
+                    spacing: 10px;
+
+                    // Scan from Screen
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        height: 64px;
+                        border-radius: Theme.border-radius-lg;
+                        background: screen-touch.has-hover ? Theme.surface-hover : Theme.surface-subtle;
+                        border-width: 1px;
+                        border-color: screen-touch.has-hover ? Theme.primary : Theme.border;
+                        animate background { duration: 200ms; }
+                        animate border-color { duration: 200ms; }
+                        screen-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.scan-screen();
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 4px;
+                            Text {
+                                text: "📷";
+                                font-size: 18px;
+                                horizontal-alignment: center;
+                            }
+
+                            Text {
+                                text: "Scan Screen";
+                                font-size: 10px;
+                                font-weight: 700;
+                                color: screen-touch.has-hover ? Theme.primary : Theme.text-secondary;
+                                horizontal-alignment: center;
+                                animate color { duration: 200ms; }
+                            }
+                        }
+                    }
+
+                    // Paste from Clipboard
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        height: 64px;
+                        border-radius: Theme.border-radius-lg;
+                        background: clipboard-touch.has-hover ? Theme.surface-hover : Theme.surface-subtle;
+                        border-width: 1px;
+                        border-color: clipboard-touch.has-hover ? Theme.primary : Theme.border;
+                        animate background { duration: 200ms; }
+                        animate border-color { duration: 200ms; }
+                        clipboard-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.scan-clipboard();
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 4px;
+                            Text {
+                                text: "📋";
+                                font-size: 18px;
+                                horizontal-alignment: center;
+                            }
+
+                            Text {
+                                text: "Paste QR";
+                                font-size: 10px;
+                                font-weight: 700;
+                                color: clipboard-touch.has-hover ? Theme.primary : Theme.text-secondary;
+                                horizontal-alignment: center;
+                                animate color { duration: 200ms; }
+                            }
+                        }
+                    }
+
+                    // Browse File
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        height: 64px;
+                        border-radius: Theme.border-radius-lg;
+                        background: file-touch.has-hover ? Theme.surface-hover : Theme.surface-subtle;
+                        border-width: 1px;
+                        border-color: file-touch.has-hover ? Theme.primary : Theme.border;
+                        animate background { duration: 200ms; }
+                        animate border-color { duration: 200ms; }
+                        file-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.scan-file();
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 4px;
+                            Text {
+                                text: "📁";
+                                font-size: 18px;
+                                horizontal-alignment: center;
+                            }
+
+                            Text {
+                                text: "Browse File";
+                                font-size: 10px;
+                                font-weight: 700;
+                                color: file-touch.has-hover ? Theme.primary : Theme.text-secondary;
+                                horizontal-alignment: center;
+                                animate color { duration: 200ms; }
+                            }
+                        }
+                    }
+                }
+
+                // ─── Scan Status Feedback ───
+                if (root.scan-error != ""): Rectangle {
+                    height: 32px;
+                    border-radius: Theme.border-radius;
+                    background: Theme.danger-soft;
+                    HorizontalLayout {
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        spacing: 6px;
+                        alignment: center;
+                        Text {
+                            text: "⚠";
+                            font-size: 11px;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: root.scan-error;
+                            color: Theme.danger;
+                            font-size: 11px;
+                            font-weight: 600;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                    }
+                }
+                if (root.scanned-secret != "" && root.scan-error == ""): Rectangle {
+                    height: 32px;
+                    border-radius: Theme.border-radius;
+                    background: Theme.success-soft;
+                    HorizontalLayout {
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        spacing: 6px;
+                        alignment: center;
+                        Text {
+                            text: "✓";
+                            font-size: 11px;
+                            color: Theme.success;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: "QR code scanned — fields auto-filled!";
+                            color: Theme.success;
+                            font-size: 11px;
+                            font-weight: 600;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            // ─── Divider with label ───
+            HorizontalLayout {
+                spacing: 12px;
+                alignment: center;
+                Rectangle {
+                    height: 1px;
+                    horizontal-stretch: 1;
+                    background: Theme.border-subtle;
+                }
+
+                Text {
+                    text: "OR ENTER MANUALLY";
+                    font-size: 9px;
+                    font-weight: 800;
+                    color: Theme.text-disabled;
+                    letter-spacing: 1.5px;
+                    vertical-alignment: center;
+                }
+
+                Rectangle {
+                    height: 1px;
+                    horizontal-stretch: 1;
+                    background: Theme.border-subtle;
+                }
+            }
+
+            // ─── Form Fields ───
+            VerticalLayout {
+                spacing: 14px;
+                vertical-stretch: 1;
+
+                // Name
+                VerticalLayout {
+                    spacing: 6px;
+                    Label {
+                        text: "NAME";
+                    }
+
+                    LineEdit {
+                        text <=> root.name;
+                        placeholder-text: "e.g. GitHub, Google";
+                        font-size: 13px;
+                    }
+                }
+
+                // Issuer
+                VerticalLayout {
+                    spacing: 6px;
+                    Label {
+                        text: "ISSUER";
+                    }
+
+                    LineEdit {
+                        text <=> root.issuer;
+                        placeholder-text: "e.g. GitHub, Inc.";
+                        font-size: 13px;
+                    }
+                }
+
+                // Secret
+                VerticalLayout {
+                    spacing: 6px;
+                    Label {
+                        text: "SECRET KEY";
+                    }
+
+                    LineEdit {
+                        text <=> root.secret;
+                        placeholder-text: "Base32 encoded secret";
+                        font-size: 13px;
+                    }
+                }
+            }
+
+            // ─── Action Buttons ───
+            HorizontalLayout {
+                spacing: 10px;
+                alignment: end;
+                SecondaryButton {
+                    text: "Cancel";
+                    width: 100px;
+                    clicked => {
+                        root.close();
+                    }
+                }
+
+                PrimaryButton {
+                    text: root.edit-id == "" ? "Add Authenticator" : "Save Changes";
+                    width: 160px;
+                    enabled: root.name != "" && root.secret != "";
+                    clicked => {
+                        root.save(root.edit-id, root.name, root.secret, root.issuer);
+                        root.close();
+                    }
+                }
+            }
+        }
+    }
+}

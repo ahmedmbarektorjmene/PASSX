@@ -1,0 +1,177 @@
+import { Theme } from "../theme.slint";
+import {
+    PrimaryButton,
+    SecondaryButton,
+    Label,
+    Card,
+} from "../components.slint";
+import { LineEdit } from "std-widgets.slint";
+
+export component UnlockScreen inherits Rectangle {
+    in property <string> vault-path;
+    in property <string> error-message;
+    callback unlock(string);
+    callback back();
+    background: Theme.background;
+    property <string> password;
+
+    // Ambient background glow
+    Rectangle {
+        x: parent.width / 2 - 200px;
+        y: parent.height / 2 - 250px;
+        width: 400px;
+        height: 400px;
+        background: Theme.primary-glow;
+        border-radius: 200px;
+        opacity: 0.04;
+    }
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 32px;
+        
+        // Branded Header
+        VerticalLayout {
+            spacing: 16px;
+            HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 88px;
+                    height: 88px;
+                    Rectangle {
+                        width: 88px;
+                        height: 88px;
+                        border-radius: 44px;
+                        background: Theme.primary-glow;
+                        border-width: 1px;
+                        border-color: Theme.primary-glow;
+                    }
+
+                    Image {
+                        source: @image-url("../../../assets/lock.svg");
+                        width: 44px;
+                        height: 44px;
+                        colorize: Theme.primary;
+                        x: 22px;
+                        y: 22px;
+                    }
+                }
+            }
+
+            Text {
+                text: "Vault Locked";
+                font-size: 32px;
+                font-weight: 800;
+                horizontal-alignment: center;
+                color: Theme.text-primary;
+                letter-spacing: -0.5px;
+            }
+
+            // Path with truncation
+            HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    max-width: 420px;
+                    height: 28px;
+                    border-radius: Theme.border-radius-pill;
+                    background: Theme.surface;
+                    border-width: 1px;
+                    border-color: Theme.border-subtle;
+                    HorizontalLayout {
+                        padding-left: 14px;
+                        padding-right: 14px;
+                        spacing: 6px;
+                        alignment: center;
+                        Image {
+                            source: @image-url("../../../assets/folder.svg");
+                            width: 12px;
+                            height: 12px;
+                            colorize: Theme.text-muted;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: root.vault-path;
+                            font-size: 11px;
+                            color: Theme.text-muted;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Action Card - centered via wrapper
+        HorizontalLayout {
+            alignment: center;
+            Card {
+                width: 420px;
+                VerticalLayout {
+                    spacing: 20px;
+                    VerticalLayout {
+                        spacing: 6px;
+                        Label {
+                            text: "MASTER PASSWORD";
+                        }
+
+                        LineEdit {
+                            placeholder-text: "Enter your master password";
+                            input-type: InputType.password;
+                            font-size: 13px;
+                            edited(t) => {
+                                root.password = t;
+                            }
+                        }
+                    }
+
+                    if (root.error-message != ""): Rectangle {
+                        height: 36px;
+                        background: Theme.danger-soft;
+                        border-radius: Theme.border-radius;
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            spacing: 8px;
+                            alignment: center;
+                            Text {
+                                text: "!";
+                                font-size: 12px;
+                                font-weight: 800;
+                                color: Theme.danger;
+                                vertical-alignment: center;
+                            }
+
+                            Text {
+                                text: root.error-message;
+                                color: Theme.danger;
+                                font-size: 13px;
+                                font-weight: 600;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                    PrimaryButton {
+                        text: "Unlock Vault";
+                        height: 48px;
+                        enabled: root.password != "";
+                        clicked => {
+                            root.unlock(root.password);
+                        }
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            SecondaryButton {
+                text: "Switch Vault";
+                width: 160px;
+                clicked => {
+                    root.back();
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,58 @@
+export global Theme {
+    // --- Palette (Slate/Blue Premium Dark) ---
+    in-out property <color> background: #0F1115;       // Near black, deep depth
+    in-out property <color> background-alt: #0A0C0F;   // Even deeper for contrast panels
+    in-out property <color> surface: #1C1F26;          // Layer 1 components
+    in-out property <color> surface-subtle: #252932;   // Layer 2 components / separators
+    in-out property <color> surface-hover: #2D333D;    // Interactive highlight
+    in-out property <color> surface-elevated: #1E222A; // Cards with slight lift
+    
+    in-out property <color> primary: #3B82F6;          // Modern Vibrant Blue
+    in-out property <color> primary-deep: #2563EB;     // Foundation blue
+    in-out property <color> primary-soft: #1D4ED8;     // Muted pressed state
+    in-out property <color> primary-glow: rgba(59, 130, 246, 0.15);
+    in-out property <color> primary-glow-strong: rgba(59, 130, 246, 0.25);
+    in-out property <color> accent: #8B5CF6;           // Purple accent for variety
+    in-out property <color> accent-glow: rgba(139, 92, 246, 0.12);
+    in-out property <color> danger: #EF4444;           // Modern Red
+    in-out property <color> danger-soft: rgba(239, 68, 68, 0.12);
+    in-out property <color> success: #10B981;          // Modern Emerald
+    in-out property <color> success-soft: rgba(16, 185, 129, 0.12);
+    in-out property <color> warning: #F59E0B;          // Modern Amber
+    in-out property <color> warning-soft: rgba(245, 158, 11, 0.12);
+    in-out property <color> text-primary: #F8FAFC;     // Crisp off-white
+    in-out property <color> text-secondary: #94A3B8;   // Slate gray text
+    in-out property <color> text-muted: #64748B;       // Muted slate
+    in-out property <color> text-disabled: #475569;    // Disabled text
+    
+    in-out property <color> border: #2E333D;           // Soft sharp border
+    in-out property <color> border-bright: #3F444E;    // Focused border
+    in-out property <color> border-subtle: #222730;    // Very subtle separator
+    
+    // Shadow simulation via layered borders
+    in-out property <color> shadow-color: rgba(0, 0, 0, 0.3);
+    
+    // --- Metrics ---
+    in-out property <length> border-radius: 8px;
+    in-out property <length> border-radius-xs: 4px;
+    in-out property <length> border-radius-sm: 6px;
+    in-out property <length> border-radius-lg: 12px;
+    in-out property <length> border-radius-xl: 16px;
+    in-out property <length> border-radius-pill: 999px;
+    in-out property <length> padding-xs: 4px;
+    in-out property <length> padding-sm: 8px;
+    in-out property <length> padding-md: 16px;
+    in-out property <length> padding-lg: 24px;
+    in-out property <length> padding-xl: 32px;
+
+    // --- Typography ---
+    in-out property <string> font-family: "Inter";
+    in-out property <length> font-size-display: 36px;
+    in-out property <length> font-size-h1: 28px;
+    in-out property <length> font-size-h2: 20px;
+    in-out property <length> font-size-h3: 16px;
+    in-out property <length> font-size-body: 14px;
+    in-out property <length> font-size-small: 12px;
+    in-out property <length> font-size-xs: 10px;
+    in-out property <length> font-size-xl: 24px;
+}

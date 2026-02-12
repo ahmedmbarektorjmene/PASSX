@@ -1,0 +1,335 @@
+// Detail Panel for selected entry (Accounts/Trash)
+import { Theme } from "../theme.slint";
+import {
+    IconButton,
+    Card,
+    StatusBadge,
+    Label,
+} from "../components.slint";
+import { ScrollView, LineEdit } from "std-widgets.slint";
+
+export component DetailPanel inherits Rectangle {
+    in property <bool> has-selection;
+    in property <string> selected-entry-id;
+    // Cached selected entry properties
+    in property <string> sel-title;
+    in property <string> sel-username;
+    in property <string> sel-url;
+    in property <string> sel-icon-text;
+    in property <image> sel-icon;
+    in property <bool> sel-has-icon;
+    in property <bool> sel-deleted;
+    in property <bool> sel-has-totp;
+    in property <string> sel-totp-code;
+    // Password reveal
+    in-out property <string> revealed-password;
+    in-out property <bool> is-password-revealed;
+    in property <float> totp-progress;
+
+    // Action callbacks
+    callback edit-entry(string /* id */, string /* title */, string /* username */, string /* url */);
+    callback restore-entry(string);
+    callback delete-entry(string);
+    callback trash-entry(string);
+    callback copy-username(string);
+    callback copy-password(string);
+    callback reveal-password(string);
+    callback copy-to-clipboard(string);
+    callback confirm-delete(string);
+    horizontal-stretch: 1;
+    background: Theme.background-alt;
+
+    // Selected Entry Detail (uses cached sel-* properties)
+    if (root.has-selection): ScrollView {
+        VerticalLayout {
+            padding: 32px;
+            spacing: 24px;
+            max-width: 580px;
+            alignment: start;
+
+            // --- Header Section ---
+            HorizontalLayout {
+                spacing: 20px;
+
+                // Icon with glow
+                Rectangle {
+                    width: 72px;
+                    height: 72px;
+                    background: Theme.surface;
+                    border-radius: 18px;
+                    border-width: 1px;
+                    border-color: Theme.border;
+                    if (root.sel-has-icon): Image {
+                        source: root.sel-icon;
+                        width: 60%;
+                        height: 60%;
+                    }
+                    if (!root.sel-has-icon): Text {
+                        text: root.sel-icon-text;
+                        font-size: 28px;
+                        font-weight: 800;
+                        color: Theme.primary;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 6px;
+                    Text {
+                        text: root.sel-title;
+                        font-size: 22px;
+                        font-weight: 800;
+                        color: Theme.text-primary;
+                        letter-spacing: -0.3px;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        if (root.sel-deleted): StatusBadge {
+                            text: "Trashed";
+                            badge-color: Theme.danger;
+                        }
+                        if (root.sel-has-totp): StatusBadge {
+                            text: "2FA";
+                            badge-color: Theme.success;
+                        }
+                    }
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+
+                // Action buttons
+                VerticalLayout {
+                    alignment: center;
+                    HorizontalLayout {
+                        spacing: 4px;
+                        IconButton {
+                            icon: @image-url("../../../assets/edit.svg");
+                            colorize: Theme.primary;
+                            clicked => {
+                                root.edit-entry(root.selected-entry-id, root.sel-title, root.sel-username, root.sel-url);
+                            }
+                        }
+
+                        // Trash/Restore/Delete buttons
+                        if (root.sel-deleted): IconButton {
+                            icon: @image-url("../../../assets/vault.svg");
+                            colorize: Theme.success;
+                            clicked => {
+                                root.restore-entry(root.selected-entry-id);
+                            }
+                        }
+                        if (root.sel-deleted): IconButton {
+                            icon: @image-url("../../../assets/trash.svg");
+                            colorize: Theme.danger;
+                            clicked => {
+                                root.confirm-delete(root.selected-entry-id);
+                            }
+                        }
+                        if (!root.sel-deleted): IconButton {
+                            icon: @image-url("../../../assets/trash.svg");
+                            colorize: Theme.danger;
+                            clicked => {
+                                root.trash-entry(root.selected-entry-id);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- Credentials Card ---
+            Card {
+                title: "CREDENTIALS";
+                icon: @image-url("../../../assets/lock.svg");
+                VerticalLayout {
+                    spacing: 20px;
+
+                    // Username row
+                    VerticalLayout {
+                        spacing: 6px;
+                        Label {
+                            text: "USERNAME";
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            LineEdit {
+                                text: root.sel-username;
+                                read-only: true;
+                                horizontal-stretch: 1;
+                                font-size: 13px;
+                            }
+
+                            IconButton {
+                                icon: @image-url("../../../assets/copy.svg");
+                                colorize: Theme.text-secondary;
+                                clicked => {
+                                    root.copy-username(root.selected-entry-id);
+                                }
+                            }
+                        }
+                    }
+
+                    // Password row
+                    VerticalLayout {
+                        spacing: 6px;
+                        Label {
+                            text: "PASSWORD";
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            LineEdit {
+                                text: root.is-password-revealed ? root.revealed-password : "••••••••••••";
+                                read-only: true;
+                                horizontal-stretch: 1;
+                                font-size: 13px;
+                                input-type: root.is-password-revealed ? InputType.text : InputType.password;
+                            }
+
+                            IconButton {
+                                icon: root.is-password-revealed ? @image-url("../../../assets/eye-off.svg") : @image-url("../../../assets/eye.svg");
+                                colorize: Theme.text-secondary;
+                                clicked => {
+                                    if (root.is-password-revealed) {
+                                        root.is-password-revealed = false;
+                                        root.revealed-password = "";
+                                    } else {
+                                        root.reveal-password(root.selected-entry-id);
+                                    }
+                                }
+                            }
+
+                            IconButton {
+                                icon: @image-url("../../../assets/copy.svg");
+                                colorize: Theme.text-secondary;
+                                clicked => {
+                                    root.copy-password(root.selected-entry-id);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- TOTP Card ---
+            if (root.sel-has-totp): Card {
+                title: "TWO-FACTOR AUTHENTICATION";
+                icon: @image-url("../../../assets/shield.svg");
+                VerticalLayout {
+                    spacing: 14px;
+                    HorizontalLayout {
+                        spacing: 16px;
+                        Text {
+                            text: root.sel-totp-code;
+                            font-size: 34px;
+                            font-family: "Consolas";
+                            font-weight: 800;
+                            color: Theme.primary;
+                            letter-spacing: 6px;
+                            vertical-alignment: center;
+                        }
+
+                        Rectangle {
+                            horizontal-stretch: 1;
+                        }
+
+                        IconButton {
+                            icon: @image-url("../../../assets/copy.svg");
+                            colorize: Theme.text-secondary;
+                            clicked => {
+                                root.copy-to-clipboard(root.sel-totp-code);
+                            }
+                        }
+                    }
+
+                    // TOTP progress bar
+                    Rectangle {
+                        height: 5px;
+                        background: Theme.surface-subtle;
+                        border-radius: 3px;
+                        Rectangle {
+                            x: 0;
+                            width: parent.width * root.totp-progress;
+                            height: 100%;
+                            background: root.totp-progress < 0.2 ? Theme.danger : (root.totp-progress < 0.5 ? Theme.warning : Theme.primary);
+                            border-radius: 3px;
+                            animate background { duration: 400ms; }
+                            animate width { duration: 1000ms; }
+                        }
+                    }
+
+                    Text {
+                        text: root.totp-progress < 0.2 ? "Expiring soon" : "Time remaining";
+                        font-size: 10px;
+                        color: root.totp-progress < 0.2 ? Theme.danger : Theme.text-muted;
+                        animate color { duration: 400ms; }
+                    }
+                }
+            }
+
+            // --- Website Card ---
+            if (root.sel-url != ""): Card {
+                title: "WEBSITE";
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text {
+                        text: root.sel-url;
+                        color: Theme.primary;
+                        font-size: 13px;
+                        vertical-alignment: center;
+                        overflow: elide;
+                        horizontal-stretch: 1;
+                    }
+
+                    IconButton {
+                        icon: @image-url("../../../assets/copy.svg");
+                        colorize: Theme.text-secondary;
+                        clicked => {
+                            root.copy-to-clipboard(root.sel-url);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Empty State (no selection)
+    if (!root.has-selection): VerticalLayout {
+        alignment: center;
+        spacing: 16px;
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 80px;
+                height: 80px;
+                border-radius: 40px;
+                background: Theme.surface;
+                Image {
+                    source: @image-url("../../../assets/vault.svg");
+                    width: 36px;
+                    height: 36px;
+                    colorize: Theme.text-disabled;
+                }
+            }
+        }
+
+        Text {
+            text: "Select an item to view details";
+            color: Theme.text-muted;
+            font-size: 14px;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            text: "Choose an entry from the list on the left";
+            color: Theme.text-disabled;
+            font-size: 12px;
+            horizontal-alignment: center;
+        }
+    }
+}

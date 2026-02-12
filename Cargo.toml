@@ -1,0 +1,89 @@
+[package]
+name = "passx"
+version = "1.0.0"
+edition = "2021"
+authors = ["passx"]
+description = "A secure, zero-knowledge password manager with TPM integration and Slint GUI"
+
+[dependencies]
+# Crypto
+chacha20poly1305 = "0.10"
+argon2 = "0.5"
+sha2 = "0.10"
+rand = "0.8"
+subtle = "2.5"
+hkdf = "0.12"
+zeroize = { version = "1.7", features = ["derive"] }
+
+# TPM (Native Windows NCrypt - no C dependencies)
+# We use the 'windows' crate features instead of external TPM libraries
+
+# Windows APIs
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_Security_Cryptography",
+    "Win32_System_Memory",
+    "Win32_System_Threading",
+    "Win32_System_DataExchange",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_JobObjects",
+    "Win32_System_WinRT",
+    "Security_Credentials_UI",
+    "Win32_System_LibraryLoader",
+    "Win32_Security_Credentials",
+    "Win32_System_Kernel",
+    "Foundation",
+    "Win32_Security_Authorization",
+    "Win32_Security",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_SystemInformation",
+    "Win32_System_SystemServices",
+] }
+
+# File Dialogs
+rfd = "0.12"
+
+# Slint GUI (pure Rust, no JS/TS)
+slint = "1.9"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+bincode = "1.3"
+
+# Async
+tokio = { version = "1.0", features = ["rt", "time", "sync"] }
+
+# Signing
+ed25519-dalek = "2.0"
+hex = "0.4"
+base64 = "0.21"
+chrono = { version = "0.4", features = ["serde"] }
+bip39 = { version = "2.2.2", features = ["rand"] }
+totp-rs = { version = "5.5", features = ["qr"] }
+base32 = "0.4"
+
+# Import/Export
+csv = "1.3"
+serde_json = "1.0"
+
+# QR Code Scanning
+rqrr = "0.6"
+xcap = { version = "0.0.9", default-features = false } # minimal features for screenshot
+
+# Clipboard
+arboard = "3.2"
+
+# Networking & Icons
+reqwest = { version = "0.11", features = ["blocking", "rustls-tls"] }
+image = "0.24"
+self_update = "0.42.0"
+
+[build-dependencies]
+slint-build = "1.9"
+winres = "0.1"
+
+[dev-dependencies]
+proptest = "1.0"
+rand = "0.8"
+tempfile = "3.8"

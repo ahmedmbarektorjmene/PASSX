@@ -1,0 +1,358 @@
+import { Theme } from "../theme.slint";
+import {
+    PrimaryButton,
+    SecondaryButton,
+    Divider,
+    Card,
+    Label,
+} from "../components.slint";
+import { LineEdit } from "std-widgets.slint";
+
+export component CreateVaultScreen inherits Rectangle {
+    in property <string> file-path;
+    in property <bool> tpm-available: true;
+    callback browse-path();
+    callback create-vault(string, int); // password, mode
+    callback back();
+    background: Theme.background;
+    
+    // Internal state
+    // Default to Portable (2) if TPM is not available, otherwise DeviceBound (1)
+    in-out property <int> vault-mode: root.tpm-available ? 1 : 2;
+    property <string> password;
+    property <string> confirm-password;
+    VerticalLayout {
+        padding: 40px;
+        spacing: 24px;
+
+        // Content Area (Takes available space, aligns children to top)
+        VerticalLayout {
+            vertical-stretch: 1;
+            alignment: start; // Pack content at the top
+            spacing: 24px;
+
+            // Header
+            Text {
+                text: "Create New Vault";
+                color: Theme.text-primary;
+                font-size: Theme.font-size-xl;
+                font-weight: 800;
+            }
+
+            // Vault Location Card
+            Card {
+                title: "VAULT LOCATION";
+                icon: @image-url("../../../assets/folder.svg"); // Basic folder icon
+                
+                VerticalLayout {
+                    spacing: 12px;
+                    Label {
+                        text: "FILE PATH";
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        height: 40px;
+                        LineEdit {
+                            text: root.file-path;
+                            placeholder-text: "Select a location to save your vault...";
+                            enabled: false; // Read-only, set by browse
+                            horizontal-stretch: 1;
+                            font-size: 13px;
+                        }
+
+                        SecondaryButton {
+                            text: "Browse";
+                            icon: @image-url("../../../assets/folder.svg");
+                            width: 100px;
+                            clicked => {
+                                root.browse-path();
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Security Mode Card
+            Card {
+                title: "SECURITY MODE";
+                icon: @image-url("../../../assets/shield.svg");
+                VerticalLayout {
+                    spacing: 12px;
+                    
+                    // Device Bound Card
+                    Rectangle {
+                        height: 80px;
+                        horizontal-stretch: 1;
+                        // Dim nicely if disabled
+                        background: (root.vault-mode == 1) ? Theme.primary-glow : (root.tpm-available ? Theme.surface : Theme.surface-subtle);
+                        border-radius: Theme.border-radius-lg;
+                        border-width: (root.vault-mode == 1) ? 2px : 1px;
+                        border-color: (root.vault-mode == 1) ? Theme.primary : Theme.border; // Theme.border normally
+                        opacity: root.tpm-available ? 1.0 : 0.5;
+                        animate background {
+                            duration: 200ms;
+                            easing: ease-in-out;
+                        }
+                        animate border-color {
+                            duration: 200ms;
+                            easing: ease-in-out;
+                        }
+                        TouchArea {
+                            mouse-cursor: root.tpm-available ? pointer : not-allowed;
+                            clicked => {
+                                if (root.tpm-available) {
+                                    root.vault-mode = 1;
+                                }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            padding: 16px;
+                            spacing: 12px;
+                            Image {
+                                source: @image-url("../../../assets/shield.svg");
+                                width: 28px;
+                                height: 28px;
+                                colorize: (root.vault-mode == 1) ? Theme.primary : Theme.text-muted;
+                                vertical-alignment: center;
+                                animate colorize { duration: 200ms; }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 2px;
+                                Text {
+                                    text: "Device Bound";
+                                    color: (root.vault-mode == 1) ? Theme.text-primary : Theme.text-secondary;
+                                    font-size: Theme.font-size-body;
+                                    font-weight: 700;
+                                }
+
+                                Text {
+                                    text: root.tpm-available ? "Locked to TPM hardware" : "PC does not support TPM";
+                                    color: (root.tpm-available && root.vault-mode == 1) ? Theme.text-secondary : (root.tpm-available ? Theme.text-muted : Theme.danger);
+                                    font-size: Theme.font-size-xs;
+                                }
+                            }
+                        }
+
+                        // Selection Checkmark
+                         if (root.vault-mode == 1): Rectangle {
+                            x: parent.width - 30px;
+                            y: 6px;
+                            width: 22px;
+                            height: 22px;
+                            border-radius: 11px;
+                            background: Theme.primary;
+                            Text {
+                                text: "✓";
+                                color: white;
+                                font-weight: 800;
+                                font-size: 12px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Portable Card
+                    Rectangle {
+                        height: 80px;
+                        horizontal-stretch: 1;
+                        background: (root.vault-mode == 2) ? Theme.accent-glow : Theme.surface;
+                        border-radius: Theme.border-radius-lg;
+                        border-width: (root.vault-mode == 2) ? 2px : 1px;
+                        border-color: (root.vault-mode == 2) ? Theme.accent : Theme.border;
+                        animate background {
+                            duration: 200ms;
+                            easing: ease-in-out;
+                        }
+                        animate border-color {
+                            duration: 200ms;
+                            easing: ease-in-out;
+                        }
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.vault-mode = 2;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            padding: 16px;
+                            spacing: 12px;
+                            Image {
+                                source: @image-url("../../../assets/lock.svg");
+                                width: 28px;
+                                height: 28px;
+                                colorize: (root.vault-mode == 2) ? Theme.accent : Theme.text-muted;
+                                vertical-alignment: center;
+                                animate colorize { duration: 200ms; }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 2px;
+                                Text {
+                                    text: "Portable";
+                                    color: (root.vault-mode == 2) ? Theme.text-primary : Theme.text-secondary;
+                                    font-size: Theme.font-size-body;
+                                    font-weight: 700;
+                                }
+
+                                Text {
+                                    text: "Password-protected, any device";
+                                    color: (root.vault-mode == 2) ? Theme.text-secondary : Theme.text-muted;
+                                    font-size: Theme.font-size-xs;
+                                }
+                            }
+                        }
+
+                        // Selection Checkmark
+                         if (root.vault-mode == 2): Rectangle {
+                            x: parent.width - 30px;
+                            y: 6px;
+                            width: 22px;
+                            height: 22px;
+                            border-radius: 11px;
+                            background: Theme.accent;
+                            Text {
+                                text: "✓";
+                                color: white;
+                                font-weight: 800;
+                                font-size: 12px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Password Section (Portable only)
+            if (root.vault-mode == 2): Card {
+                title: "MASTER PASSWORD";
+                icon: @image-url("../../../assets/lock.svg");
+                VerticalLayout {
+                    spacing: 16px;
+                    VerticalLayout {
+                        spacing: 6px;
+                        Label {
+                            text: "PASSWORD";
+                        }
+
+                        LineEdit {
+                            placeholder-text: "Enter a strong master password";
+                            input-type: InputType.password;
+                            font-size: 13px;
+                            edited(t) => {
+                                root.password = t;
+                            }
+                        }
+                    }
+
+                    VerticalLayout {
+                        spacing: 6px;
+                        Label {
+                            text: "CONFIRM PASSWORD";
+                        }
+
+                        LineEdit {
+                            placeholder-text: "Re-enter your password";
+                            input-type: InputType.password;
+                            font-size: 13px;
+                            edited(t) => {
+                                root.confirm-password = t;
+                            }
+                        }
+                    }
+                
+                    // Validation Message
+                     if (root.password != "" && root.password != root.confirm-password): Rectangle {
+                        height: 32px;
+                        background: Theme.danger-soft;
+                        border-radius: Theme.border-radius;
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            spacing: 8px;
+                            alignment: start;
+                            Text {
+                                text: "!";
+                                font-size: 12px;
+                                font-weight: 800;
+                                color: Theme.danger;
+                                vertical-alignment: center;
+                            }
+
+                            Text {
+                                text: "Passwords do not match";
+                                color: Theme.danger;
+                                font-size: Theme.font-size-small;
+                                font-weight: 600;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                    if (root.password != "" && root.password == root.confirm-password): Rectangle {
+                        height: 32px;
+                        background: Theme.success-soft;
+                        border-radius: Theme.border-radius;
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            spacing: 8px;
+                            alignment: start;
+                            Text {
+                                text: "✓";
+                                font-size: 12px;
+                                color: Theme.success;
+                                vertical-alignment: center;
+                            }
+
+                            Text {
+                                text: "Passwords match";
+                                color: Theme.success;
+                                font-size: Theme.font-size-small;
+                                font-weight: 600;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Bottom Actions Area (Pinned to bottom, does not stretch)
+        VerticalLayout {
+            vertical-stretch: 0;
+            spacing: 16px;
+            Rectangle {
+                height: 1px;
+                background: Theme.border-subtle;
+            }
+
+            HorizontalLayout {
+                spacing: 12px;
+                alignment: end;
+                // No top padding needed if spacing handles it
+                
+                SecondaryButton {
+                    text: "Cancel";
+                    width: 110px;
+                    clicked => {
+                        root.back();
+                    }
+                }
+
+                PrimaryButton {
+                    text: "Create Vault";
+                    width: 160px;
+                    enabled: root.file-path != "" && (root.vault-mode == 1 || (root.password != "" && root.password == root.confirm-password));
+                    clicked => {
+                        root.create-vault(root.password, root.vault-mode);
+                    }
+                }
+            }
+        }
+    }
+}

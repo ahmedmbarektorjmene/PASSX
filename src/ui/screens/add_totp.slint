@@ -1,0 +1,247 @@
+import { Theme } from "../theme.slint";
+import {
+    PrimaryButton,
+    SecondaryButton,
+    Card,
+    Divider,
+    Label,
+} from "../components.slint";
+import { LineEdit } from "std-widgets.slint";
+
+export component AddTotpScreen inherits Rectangle {
+    in property <string> error-message: "";
+    callback back();
+    callback save-totp(string, string, string); // account, secret, issuer
+    
+    background: Theme.background;
+    property <string> account-name: "";
+    property <string> secret-key: "";
+    property <string> issuer-name: "";
+    VerticalLayout {
+        padding: 40px;
+        alignment: center;
+        spacing: 28px;
+
+        // --- Header ---
+        VerticalLayout {
+            spacing: 12px;
+
+            // Icon with glow - centered
+            HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 72px;
+                    height: 72px;
+                    Rectangle {
+                        width: 72px;
+                        height: 72px;
+                        border-radius: 36px;
+                        background: Theme.primary-glow;
+                    }
+
+                    Image {
+                        source: @image-url("../../../assets/shield.svg");
+                        width: 36px;
+                        height: 36px;
+                        colorize: Theme.primary;
+                        x: 18px;
+                        y: 18px;
+                    }
+                }
+            }
+
+            Text {
+                text: "Add TOTP Authenticator";
+                horizontal-alignment: center;
+                font-size: Theme.font-size-h1;
+                font-weight: 800;
+                color: Theme.text-primary;
+                letter-spacing: -0.5px;
+            }
+
+            Text {
+                text: "Secure your accounts with two-factor authentication";
+                horizontal-alignment: center;
+                font-size: Theme.font-size-body;
+                color: Theme.text-secondary;
+            }
+        }
+
+        // --- QR Code Placeholder - centered ---
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                height: 160px;
+                width: 160px;
+                background: Theme.surface;
+                border-radius: Theme.border-radius-lg;
+                border-width: 2px;
+                border-color: Theme.border;
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 10px;
+                    Image {
+                        source: @image-url("../../../assets/shield.svg");
+                        width: 48px;
+                        height: 48px;
+                        colorize: Theme.text-disabled;
+                        horizontal-alignment: center;
+                    }
+
+                    Text {
+                        text: "Scan QR Code";
+                        horizontal-alignment: center;
+                        font-size: Theme.font-size-small;
+                        font-weight: 600;
+                        color: Theme.text-muted;
+                    }
+
+                    Text {
+                        text: "(Coming Soon)";
+                        horizontal-alignment: center;
+                        font-size: 9px;
+                        color: Theme.text-disabled;
+                    }
+                }
+
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        // In a real app, this would open camera
+                    }
+                }
+            }
+        }
+
+        // Divider with label
+        HorizontalLayout {
+            spacing: 12px;
+            alignment: center;
+            Rectangle {
+                height: 1px;
+                width: 80px;
+                background: Theme.border-subtle;
+            }
+
+            Text {
+                text: "OR ENTER MANUALLY";
+                font-size: 9px;
+                font-weight: 800;
+                color: Theme.text-disabled;
+                letter-spacing: 1.5px;
+                vertical-alignment: center;
+            }
+
+            Rectangle {
+                height: 1px;
+                width: 80px;
+                background: Theme.border-subtle;
+            }
+        }
+
+        // --- Form Card - centered ---
+        HorizontalLayout {
+            alignment: center;
+            Card {
+                width: 420px;
+                VerticalLayout {
+                    spacing: 14px;
+                    VerticalLayout {
+                        spacing: 4px;
+                        Label {
+                            text: "ACCOUNT NAME";
+                        }
+
+                        LineEdit {
+                            placeholder-text: "e.g. Google: user@gmail.com";
+                            text: root.account-name;
+                            edited(t) => {
+                                root.account-name = t;
+                            }
+                        }
+                    }
+
+                    VerticalLayout {
+                        spacing: 4px;
+                        Label {
+                            text: "SECRET KEY";
+                        }
+
+                        LineEdit {
+                            placeholder-text: "Enter the base32 secret";
+                            text: root.secret-key;
+                            edited(t) => {
+                                root.secret-key = t;
+                            }
+                        }
+                    }
+
+                    VerticalLayout {
+                        spacing: 4px;
+                        Label {
+                            text: "ISSUER (OPTIONAL)";
+                        }
+
+                        LineEdit {
+                            placeholder-text: "e.g. Google, GitHub, etc.";
+                            text: root.issuer-name;
+                            edited(t) => {
+                                root.issuer-name = t;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (root.error-message != ""): HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                height: 36px;
+                max-width: 420px;
+                background: Theme.danger-soft;
+                border-radius: Theme.border-radius;
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    spacing: 8px;
+                    alignment: center;
+                    Text {
+                        text: "⚠";
+                        font-size: 12px;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: root.error-message;
+                        color: Theme.danger;
+                        font-size: Theme.font-size-small;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        // --- Buttons ---
+        HorizontalLayout {
+            spacing: 12px;
+            alignment: center;
+            SecondaryButton {
+                text: "← Cancel";
+                width: 120px;
+                clicked => {
+                    root.back();
+                }
+            }
+
+            PrimaryButton {
+                text: "Save TOTP  →";
+                width: 150px;
+                clicked => {
+                    root.save-totp(root.account-name, root.secret-key, root.issuer-name);
+                }
+            }
+        }
+    }
+}

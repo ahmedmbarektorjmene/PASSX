@@ -1,0 +1,227 @@
+import { Theme } from "theme.slint";
+import { LaunchScreen } from "./screens/launch.slint";
+import { CreateVaultScreen } from "./screens/create_vault.slint";
+import { UnlockScreen } from "./screens/unlock.slint";
+import { MainVaultScreen, VaultEntryData } from "./screens/main_vault.slint";
+import { PasswordGeneratorScreen } from "./screens/generator.slint";
+import { SettingsScreen } from "./screens/settings.slint";
+
+export { VaultEntryData }
+
+export component MainWindow inherits Window {
+    title: "PassX — Secure Vault";
+    icon: @image-url("../../assets/logo.jpg");
+    default-font-family: Theme.font-family;
+    default-font-size: Theme.font-size-body;
+    preferred-width: 1050px;
+    preferred-height: 720px;
+    background: Theme.background;
+
+    // Window resize constraints
+    min-width: 800px;
+    min-height: 550px;
+    max-width: 1600px;
+    max-height: 1000px;
+
+    // Logic State
+    in-out property <int> current-screen: 0; // 0: Launch, 1: Create, 2: Unlock, 3: Main, 5: Generator, 6: Settings
+    in-out property <string> vault-path: "";
+    in-out property <string> error-message: "";
+    in-out property <[VaultEntryData]> vault-entries: [];
+    in-out property <string> selected-entry-id: "";
+    in-out property <string> revealed-password: "";
+    in-out property <bool> is-password-revealed: false;
+    in-out property <float> totp-progress: 0.0;
+    
+    // Environment
+    in property <bool> tpm-available: true;
+
+    // Callbacks
+    callback browse-for-new-vault();
+    callback browse-for-existing-vault();
+    callback create-new-vault-confirmed(string, int);
+    callback attempt-unlock(string);
+    callback lock-vault();
+    callback copy-password(string);
+    callback copy-username(string);
+    callback save-totp(string, string, string, string); // id, name, secret, issuer
+    callback delete-entry(string);
+    callback restore-entry(string);
+    callback save-entry(string, string, string, string, string); // id, title, username, password, url (no folder)
+    callback perform-search(string, string);
+    callback select-entry(string);
+    callback reveal-password(string);
+    callback generate-password(int, bool, bool, bool, bool) -> string;
+    callback copy-to-clipboard(string);
+    callback get-entry-details(string) -> VaultEntryData;
+
+    // QR Code Scanning
+    callback scan-qr-from-screen();
+    callback scan-qr-from-clipboard();
+    callback scan-qr-from-file();
+    in-out property <string> qr-scan-error: "";
+    in-out property <string> qr-scanned-account: "";
+    in-out property <string> qr-scanned-secret: "";
+    in-out property <string> qr-scanned-issuer: "";
+
+    // Import/Export
+    callback export-passwords();
+    callback export-totps();
+    callback import-passwords();
+    callback import-totps();
+    in-out property <string> io-status-message: "";
+
+    // --- Screen Logic ---
+
+    // 0: Launch
+    if (root.current-screen == 0): LaunchScreen {
+        width: 100%;
+        height: 100%;
+        create-new-vault => {
+            root.vault-path = "";
+            root.error-message = "";
+            root.current-screen = 1;
+        }
+        open-existing-vault => {
+            root.error-message = "";
+            root.browse-for-existing-vault();
+        }
+    }
+
+    // 1: Create
+    if (root.current-screen == 1): CreateVaultScreen {
+        width: 100%;
+        height: 100%;
+        file-path: root.vault-path;
+        tpm-available: root.tpm-available;
+        browse-path => {
+            root.browse-for-new-vault();
+        }
+        create-vault(pw, mode) => {
+            root.create-new-vault-confirmed(pw, mode);
+        }
+        back => {
+            root.current-screen = 0;
+        }
+    }
+
+    // 2: Unlock
+    if (root.current-screen == 2): UnlockScreen {
+        width: 100%;
+        height: 100%;
+        vault-path: root.vault-path;
+        error-message: root.error-message;
+        unlock(pw) => {
+            root.attempt-unlock(pw);
+        }
+        back => {
+            root.current-screen = 0;
+        }
+    }
+
+    // 3: Main UI
+    if (root.current-screen == 3): MainVaultScreen {
+        width: 100%;
+        height: 100%;
+        entries: root.vault-entries;
+        lock-vault => {
+            root.lock-vault();
+        }
+        save-entry(id, title, user, pass, url) => {
+            root.save-entry(id, title, user, pass, url);
+        }
+        perform-search(q, f) => {
+            root.perform-search(q, f);
+        }
+        delete-entry(id) => {
+            root.delete-entry(id);
+        }
+        restore-entry(id) => {
+            root.restore-entry(id);
+        }
+        copy-username(id) => {
+            root.copy-username(id);
+        }
+        copy-password(id) => {
+            root.copy-password(id);
+        }
+        select-entry(id) => {
+            root.select-entry(id);
+            root.is-password-revealed = false;
+            root.revealed-password = "";
+        }
+        reveal-password(id) => {
+            root.reveal-password(id);
+        }
+        selected-entry-id: root.selected-entry-id;
+        revealed-password: root.revealed-password;
+        is-password-revealed: root.is-password-revealed;
+        totp-progress: root.totp-progress;
+        open-generator => {
+            root.current-screen = 5;
+        }
+        open-settings => {
+            root.current-screen = 6;
+        }
+        copy-to-clipboard(t) => {
+            root.copy-to-clipboard(t);
+        }
+        save-totp(id, acc, sec, iss) => {
+            root.save-totp(id, acc, sec, iss);
+        }
+        get-entry-details(id) => {
+            return root.get-entry-details(id);
+        }
+        // QR Scanning
+        scan-qr-from-screen => {
+            root.scan-qr-from-screen();
+        }
+        scan-qr-from-clipboard => {
+            root.scan-qr-from-clipboard();
+        }
+        scan-qr-from-file => {
+            root.scan-qr-from-file();
+        }
+        qr-scan-error <=> root.qr-scan-error;
+        qr-scanned-account <=> root.qr-scanned-account;
+        qr-scanned-secret <=> root.qr-scanned-secret;
+        qr-scanned-issuer <=> root.qr-scanned-issuer;
+    }
+
+    // 5: Generator
+    if (root.current-screen == 5): PasswordGeneratorScreen {
+        width: 100%;
+        height: 100%;
+        back => {
+            root.current-screen = 3;
+        }
+        generate-password(l, u, lo, n, s) => {
+            return root.generate-password(l, u, lo, n, s);
+        }
+        copy-to-clipboard(t) => {
+            root.copy-to-clipboard(t);
+        }
+    }
+
+    // 6: Settings
+    if (root.current-screen == 6): SettingsScreen {
+        width: 100%;
+        height: 100%;
+        status-message: root.io-status-message;
+        back => {
+            root.current-screen = 3;
+        }
+        export-passwords => {
+            root.export-passwords();
+        }
+        export-totps => {
+            root.export-totps();
+        }
+        import-passwords => {
+            root.import-passwords();
+        }
+        import-totps => {
+            root.import-totps();
+        }
+    }
+}

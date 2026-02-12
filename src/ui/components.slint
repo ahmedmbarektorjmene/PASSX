@@ -1,0 +1,501 @@
+import { Theme } from "theme.slint";
+import { LineEdit } from "std-widgets.slint";
+
+// --- Buttons ---
+
+export component PrimaryButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    callback clicked;
+    height: 42px;
+    border-radius: Theme.border-radius;
+    background: root.enabled ? (touch.has-hover ? Theme.primary-deep : Theme.primary) : Theme.surface-subtle;
+    opacity: root.enabled ? 1.0 : 0.5;
+    animate background {
+        duration: 200ms;
+        easing: ease-in-out;
+    }
+    touch := TouchArea {
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => {
+            if (root.enabled) {
+                root.clicked();
+            }
+        }
+    }
+
+    Text {
+        text: root.text;
+        color: root.enabled ? white : Theme.text-disabled;
+        font-size: 13px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        letter-spacing: 0.3px;
+    }
+}
+
+export component SecondaryButton inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    callback clicked;
+    height: 42px;
+    border-radius: Theme.border-radius;
+    background: touch.has-hover ? Theme.surface-hover : Theme.surface;
+    border-width: 1px;
+    border-color: touch.has-hover ? Theme.border-bright : Theme.border;
+    animate background { duration: 200ms; }
+    animate border-color { duration: 200ms; }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    HorizontalLayout {
+        alignment: center;
+        spacing: 8px;
+        if (root.icon.width > 0): Image {
+            source: root.icon;
+            width: 16px;
+            height: 16px;
+            colorize: Theme.text-primary;
+            vertical-alignment: center;
+        }
+        Text {
+            text: root.text;
+            color: Theme.text-primary;
+            font-size: 13px;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component DangerButton inherits Rectangle {
+    in property <string> text;
+    callback clicked;
+    height: 42px;
+    border-radius: Theme.border-radius;
+    background: touch.has-hover ? Theme.danger : Theme.danger-soft;
+    animate background { duration: 200ms; }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    Text {
+        text: root.text;
+        color: touch.has-hover ? white : Theme.danger;
+        font-size: 13px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+// --- Icon Button ---
+
+export component IconButton inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <color> colorize: Theme.text-secondary;
+    callback clicked;
+    width: 36px;
+    height: 36px;
+    border-radius: Theme.border-radius;
+    background: touch.has-hover ? Theme.surface-hover : Colors.transparent;
+    animate background { duration: 150ms; }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    if (root.icon.width > 0): Image {
+        source: root.icon;
+        width: 18px;
+        height: 18px;
+        colorize: root.colorize;
+        opacity: touch.has-hover ? 1.0 : 0.7;
+        animate opacity { duration: 200ms; }
+    }
+    if (root.icon.width == 0): Text {
+        text: root.text;
+        color: root.colorize;
+        font-size: 18px;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+    }
+}
+
+// --- Label ---
+
+export component Label inherits Text {
+    color: Theme.text-muted;
+    font-size: Theme.font-size-xs;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+// --- List Items ---
+
+export component SidebarItem inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    in property <bool> selected;
+    callback clicked;
+    height: 40px;
+    border-radius: Theme.border-radius;
+    background: selected ? Theme.primary-glow : (touch.has-hover ? Theme.surface : Colors.transparent);
+    animate background {
+        duration: 200ms;
+        easing: ease-in-out;
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    // Pill indicator (absolute positioned)
+    Rectangle {
+        x: 4px;
+        y: (parent.height - self.height) / 2;
+        width: selected ? 3px : 0px;
+        height: 20px;
+        background: Theme.primary;
+        border-radius: Theme.border-radius-pill;
+        animate width {
+            duration: 200ms;
+            easing: ease-out;
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: 20px;
+        padding-right: 12px;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center;
+            if (root.icon.width > 0): Image {
+                source: root.icon;
+                width: 18px;
+                height: 18px;
+                colorize: selected ? Theme.primary : (touch.has-hover ? Theme.text-primary : Theme.text-secondary);
+                animate colorize { duration: 200ms; }
+            }
+        }
+
+        Text {
+            text: root.text;
+            color: selected ? Theme.text-primary : (touch.has-hover ? Theme.text-primary : Theme.text-secondary);
+            font-size: 13px;
+            font-weight: selected ? 600 : 500;
+            vertical-alignment: center;
+            animate color { duration: 200ms; }
+        }
+    }
+}
+
+export component VaultEntryItem inherits Rectangle {
+    in property <string> title;
+    in property <string> subtext;
+    in property <string> icon-char;
+    in property <image> icon;
+    in property <bool> has-icon: false;
+    in property <bool> selected;
+    callback clicked;
+    callback right-clicked(length, length); // x, y for context menu
+    height: 68px;
+    background: selected ? Theme.primary-glow : (touch.has-hover ? Theme.surface : Colors.transparent);
+    animate background {
+        duration: 200ms;
+        easing: ease-in-out;
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+        pointer-event(e) => {
+            if (e.button == PointerEventButton.right && e.kind == PointerEventKind.up) {
+                root.right-clicked(root.x + self.mouse-x, root.y + self.mouse-y);
+            }
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        padding-top: 12px;
+        padding-bottom: 12px;
+        spacing: 14px;
+
+        // Left pill indicator
+        Rectangle {
+            width: selected ? 3px : 0px;
+            height: 36px;
+            background: Theme.primary;
+            border-radius: Theme.border-radius-pill;
+            animate width {
+                duration: 200ms;
+                easing: ease-out;
+            }
+        }
+
+        // Icon badge
+        Rectangle {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: selected ? Theme.primary-glow-strong : Theme.surface;
+            border-width: 1px;
+            border-color: selected ? Theme.primary-glow : Theme.border-subtle;
+            clip: true;
+            animate background { duration: 200ms; }
+            animate border-color { duration: 200ms; }
+            if (root.has-icon): Image {
+                source: root.icon;
+                width: 100%;
+                height: 100%;
+                image-fit: contain;
+            }
+            if (!root.has-icon): Text {
+                text: root.icon-char;
+                color: selected ? Theme.primary : Theme.accent;
+                font-size: 15px;
+                font-weight: 800;
+                vertical-alignment: center;
+                horizontal-alignment: center;
+                animate color { duration: 200ms; }
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 3px;
+            Text {
+                text: root.title;
+                color: Theme.text-primary;
+                font-size: 13.5px;
+                font-weight: 600;
+                overflow: elide;
+            }
+
+            Text {
+                text: root.subtext;
+                color: Theme.text-muted;
+                font-size: 11.5px;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+// --- Loaders / Indicators ---
+
+export component Divider inherits Rectangle {
+    height: 1px;
+    background: Theme.border-subtle;
+    opacity: 0.8;
+}
+
+export component Card inherits Rectangle {
+    in property <string> title;
+    in property <image> icon;
+    background: Theme.surface-elevated;
+    border-radius: Theme.border-radius-lg;
+    border-width: 1px;
+    border-color: Theme.border;
+    VerticalLayout {
+        padding: 20px;
+        spacing: 16px;
+        if (root.title != ""): VerticalLayout {
+            spacing: 12px;
+            HorizontalLayout {
+                spacing: 10px;
+                if (root.icon.width > 0): Image {
+                    source: root.icon;
+                    width: 16px;
+                    height: 16px;
+                    colorize: Theme.text-muted;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: root.title;
+                    color: Theme.text-muted;
+                    font-size: Theme.font-size-xs;
+                    font-weight: 800;
+                    letter-spacing: 1.2px;
+                    vertical-alignment: center;
+                }
+            }
+            // Subtle separator under card header
+            Rectangle {
+                height: 1px;
+                background: Theme.border-subtle;
+            }
+        }
+        @children
+    }
+}
+
+// --- Status Badge ---
+
+export component StatusBadge inherits Rectangle {
+    in property <string> text;
+    in property <color> badge-color: Theme.primary;
+    height: 22px;
+    border-radius: Theme.border-radius-pill;
+    background: root.badge-color.transparentize(0.85);
+    border-width: 1px;
+    border-color: root.badge-color.transparentize(0.7);
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        alignment: center;
+        Text {
+            text: root.text;
+            font-size: Theme.font-size-xs;
+            font-weight: 700;
+            color: root.badge-color;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+// --- Context Menu ---
+
+export component ContextMenuItem inherits Rectangle {
+    in property <string> label;
+    in property <image> icon;
+    in property <color> text-color: Theme.text-primary;
+    callback clicked;
+    height: 34px;
+    border-radius: 6px;
+    background: touch.has-hover ? Theme.surface-hover : Colors.transparent;
+    animate background { duration: 120ms; }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            if (root.icon.width > 0): Image {
+                source: root.icon;
+                width: 14px;
+                height: 14px;
+                colorize: root.text-color;
+            }
+        }
+
+        Text {
+            text: root.label;
+            color: root.text-color;
+            font-size: 12px;
+            font-weight: 500;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// --- Confirm Dialog ---
+
+export component ConfirmDialog inherits Rectangle {
+    in property <string> title: "Are you sure?";
+    in property <string> message: "This action cannot be undone.";
+    in property <string> confirm-text: "Delete";
+    in property <string> cancel-text: "Cancel";
+    callback confirmed;
+    callback cancelled;
+    background: rgba(0, 0, 0, 0.6);
+    TouchArea {
+        clicked => {
+            root.cancelled();
+        }
+    }
+
+    Rectangle {
+        width: 380px;
+        height: 220px;
+        background: Theme.surface;
+        border-radius: Theme.border-radius-xl;
+        border-width: 1px;
+        border-color: Theme.border;
+        TouchArea { } // Prevent closing on inside click
+        
+        VerticalLayout {
+            padding: 28px;
+            spacing: 16px;
+            
+            // Warning icon
+            HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 24px;
+                    background: Theme.danger-soft;
+                    Text {
+                        text: "!";
+                        font-size: 22px;
+                        font-weight: 800;
+                        color: Theme.danger;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            Text {
+                text: root.title;
+                font-size: 16px;
+                font-weight: 700;
+                color: Theme.text-primary;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: root.message;
+                font-size: 12px;
+                color: Theme.text-muted;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+
+            HorizontalLayout {
+                spacing: 10px;
+                alignment: center;
+                SecondaryButton {
+                    text: root.cancel-text;
+                    width: 110px;
+                    clicked => {
+                        root.cancelled();
+                    }
+                }
+
+                DangerButton {
+                    text: root.confirm-text;
+                    width: 110px;
+                    clicked => {
+                        root.confirmed();
+                    }
+                }
+            }
+        }
+    }
+}

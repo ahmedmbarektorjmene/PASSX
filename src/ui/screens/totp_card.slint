@@ -1,0 +1,184 @@
+// Proton-style TOTP Card Component
+import { Theme } from "../theme.slint";
+
+export component TotpCard inherits Rectangle {
+    in property <string> title;
+    in property <string> subtitle;
+    in property <string> code;
+    in property <string> icon-char;
+    in property <image> icon;
+    in property <bool> has-icon: false;
+    in property <float> progress; // 0.0 to 1.0
+    callback clicked;
+    callback edit-clicked;
+    height: 160px;
+    border-radius: 16px;
+    background: touch.has-hover ? Theme.surface-hover : Theme.surface-elevated;
+    border-width: 1px;
+    border-color: touch.has-hover ? Theme.border-bright : Theme.border;
+    animate background { duration: 200ms; }
+    animate border-color { duration: 200ms; }
+
+    // Subtle glow on hover
+    drop-shadow-blur: touch.has-hover ? 12px : 0px;
+    drop-shadow-color: Theme.primary-glow;
+    animate drop-shadow-blur { duration: 300ms; }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    VerticalLayout {
+        padding: 18px;
+        spacing: 10px;
+
+        // Top row: icon + name + action buttons
+        HorizontalLayout {
+            spacing: 12px;
+
+            // Icon badge
+            Rectangle {
+                width: 40px;
+                height: 40px;
+                border-radius: 12px;
+                background: Theme.primary-glow;
+                border-width: 1px;
+                border-color: Theme.primary-glow-strong;
+                if (root.has-icon): Image {
+                    source: root.icon;
+                    width: 28px;
+                    height: 28px;
+                    image-fit: contain;
+                }
+                if (!root.has-icon): Text {
+                    text: root.icon-char;
+                    color: Theme.primary;
+                    font-size: 16px;
+                    font-weight: 800;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            // Name + issuer
+            VerticalLayout {
+                alignment: center;
+                spacing: 2px;
+                horizontal-stretch: 1;
+                Text {
+                    text: root.title;
+                    color: Theme.text-primary;
+                    font-size: 13px;
+                    font-weight: 700;
+                    overflow: elide;
+                }
+
+                Text {
+                    text: root.subtitle;
+                    color: Theme.text-muted;
+                    font-size: 10.5px;
+                    overflow: elide;
+                }
+            }
+
+            // Action buttons
+            VerticalLayout {
+                alignment: center;
+                HorizontalLayout {
+                    spacing: 2px;
+                    // Edit button
+                    Rectangle {
+                        width: 26px;
+                        height: 26px;
+                        border-radius: 6px;
+                        background: edit-touch.has-hover ? Theme.surface-hover : Colors.transparent;
+                        edit-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.edit-clicked();
+                            }
+                        }
+
+                        Image {
+                            source: @image-url("../../../assets/edit.svg");
+                            width: 13px;
+                            height: 13px;
+                            colorize: Theme.text-muted;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Spacer
+        Rectangle {
+            vertical-stretch: 1;
+        }
+
+        // OTP code row: large code + circular timer
+        HorizontalLayout {
+            spacing: 14px;
+            alignment: start;
+
+            // Large OTP code
+            Text {
+                text: root.code;
+                font-size: 32px;
+                font-family: "Consolas";
+                font-weight: 800;
+                color: Theme.primary;
+                letter-spacing: 4px;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+
+            // Circular timer
+            Rectangle {
+                width: 42px;
+                height: 42px;
+
+                // Background circle
+                Rectangle {
+                    width: 42px;
+                    height: 42px;
+                    border-radius: 21px;
+                    background: Theme.surface-subtle;
+                    border-width: 3px;
+                    border-color: root.progress < 0.2 ? Theme.danger.transparentize(0.5) : root.progress < 0.5 ? Theme.warning.transparentize(0.5) : Theme.primary.transparentize(0.5);
+                    animate border-color { duration: 400ms; }
+                }
+
+                // Inner fill
+                Rectangle {
+                    width: 36px;
+                    height: 36px;
+                    x: 3px;
+                    y: 3px;
+                    border-radius: 18px;
+                    background: Theme.surface-elevated;
+                }
+
+                // Seconds text
+                Text {
+                    text: round(root.progress * 30);
+                    font-size: 12px;
+                    font-weight: 800;
+                    color: root.progress < 0.2 ? Theme.danger : root.progress < 0.5 ? Theme.warning : Theme.primary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    animate color { duration: 400ms; }
+                }
+            }
+        }
+
+        // Bottom: "Click to copy" hint
+        Text {
+            text: "Click to copy code";
+            font-size: 9.5px;
+            color: Theme.text-disabled;
+            letter-spacing: 0.3px;
+        }
+    }
+}

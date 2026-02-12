@@ -1,0 +1,211 @@
+use std::sync::{Once, OnceLock};
+use std::thread;
+use std::time::Duration;
+use windows::Win32::Foundation::{ERROR_ALREADY_EXISTS, GetLastError, BOOL, HANDLE};
+use windows::Win32::System::Threading::{
+    GetCurrentThread, GetCurrentProcess,
+    SetProcessMitigationPolicy, 
+    ProcessImageLoadPolicy,
+    ProcessChildProcessPolicy,
+    ProcessStrictHandleCheckPolicy,
+};
+use windows::Win32::Security::Cryptography::{CryptProtectMemory, CryptUnprotectMemory, CRYPTPROTECTMEMORY_SAME_PROCESS};
+use windows::core::PCSTR;
+use std::ffi::c_void;
+
+// Import localized security functions
+use crate::memory::virtualization;
+use crate::runtime::{integrity, invariants};
+
+static INIT: Once = Once::new();
+static BASELINE_HASH: OnceLock<[u8; 32]> = OnceLock::new();
+
+#[repr(C)]
+struct ProcessMitigationImageLoadPolicy {
+    flags: u32,
+}
+
+#[repr(C)]
+struct ProcessMitigationChildProcessPolicy {
+    flags: u32,
+}
+
+#[repr(C)]
+struct ProcessMitigationHandleCheckPolicy {
+    flags: u32,
+}
+
+/// Apply Windows Process Mitigation policies (Image Load, Child Process, Handle Check).
+pub fn enable_process_mitigation_policies() {
+    INIT.call_once(|| {
+        unsafe {
+            // 1. Image Load Policy - NoRemoteImages | NoLowMandatoryLabelImages
+            let image_load_policy = ProcessMitigationImageLoadPolicy { flags: 3 };
+            let _ = SetProcessMitigationPolicy(
+                ProcessImageLoadPolicy,
+                &image_load_policy as *const _ as *const c_void,
+                std::mem::size_of_val(&image_load_policy),
+            );
+
+            // 2. Child Process Policy - NoChildProcess = 1
+            let child_process_policy = ProcessMitigationChildProcessPolicy { flags: 1 };
+            let _ = SetProcessMitigationPolicy(
+                ProcessChildProcessPolicy,
+                &child_process_policy as *const _ as *const c_void,
+                std::mem::size_of_val(&child_process_policy),
+            );
+
+            // 3. Handle Check Policy - RaiseExceptionOnInvalidHandleReference | HandleExceptionsPermanentlyEnabled
+            let handle_check_policy = ProcessMitigationHandleCheckPolicy { flags: 3 };
+            let _ = SetProcessMitigationPolicy(
+                ProcessStrictHandleCheckPolicy,
+                &handle_check_policy as *const _ as *const c_void,
+                std::mem::size_of_val(&handle_check_policy),
+            );
+
+            // 4. Capture baseline memory hash for code integrity
+            if let Some(hash) = integrity::get_current_memory_hash() {
+                let _ = BASELINE_HASH.set(hash);
+            }
+        }
+    });
+}
+
+/// Restrict the current process DACL to deny access.
+pub fn restrict_process_access() {
+    unsafe {
+        use windows::Win32::System::LibraryLoader::{GetModuleHandleA, GetProcAddress};
+        
+        let advapi = GetModuleHandleA(PCSTR::from_raw("advapi32.dll\0".as_ptr()));
+        let kernel32 = GetModuleHandleA(PCSTR::from_raw("kernel32.dll\0".as_ptr()));
+        
+        if let (Ok(h_advapi), Ok(h_kernel32)) = (advapi, kernel32) {
+            if !h_advapi.is_invalid() && !h_kernel32.is_invalid() {
+                let convert_fn_ptr = GetProcAddress(h_advapi, PCSTR::from_raw("ConvertStringSecurityDescriptorToSecurityDescriptorA\0".as_ptr()));
+                let set_fn_ptr = GetProcAddress(h_advapi, PCSTR::from_raw("SetKernelObjectSecurity\0".as_ptr()));
+                let free_fn_ptr = GetProcAddress(h_kernel32, PCSTR::from_raw("LocalFree\0".as_ptr()));
+
+                if let (Some(c_ptr), Some(s_ptr), Some(f_ptr)) = (convert_fn_ptr, set_fn_ptr, free_fn_ptr) {
+                    type ConvertFn = unsafe extern "system" fn(PCSTR, u32, *mut *mut c_void, *mut u32) -> BOOL;
+                    type SetFn = unsafe extern "system" fn(HANDLE, u32, *mut c_void) -> BOOL;
+                    type FreeFn = unsafe extern "system" fn(*mut c_void) -> *mut c_void;
+
+                    let convert: ConvertFn = std::mem::transmute(c_ptr);
+                    let set: SetFn = std::mem::transmute(s_ptr);
+                    let free: FreeFn = std::mem::transmute(f_ptr);
+
+                    let mut sd: *mut c_void = std::ptr::null_mut();
+                    let mut sd_size: u32 = 0;
+                    let sddl = PCSTR::from_raw("D:P\0".as_ptr()); 
+                    
+                    if convert(sddl, 1, &mut sd, &mut sd_size).as_bool() {
+                        let _ = set(GetCurrentProcess(), 4, sd);
+                        free(sd);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Hide the main thread from debuggers.
+pub fn harden_current_thread() {
+   unsafe {
+        use windows::Win32::System::LibraryLoader::{GetModuleHandleA, GetProcAddress};
+        if let Ok(ntdll) = GetModuleHandleA(PCSTR::from_raw("ntdll.dll\0".as_ptr())) {
+             if !ntdll.is_invalid() {
+                let func_ptr = GetProcAddress(ntdll, PCSTR::from_raw("NtSetInformationThread\0".as_ptr()));
+                
+                if let Some(f) = func_ptr {
+                    type NtSetInformationThreadFn = unsafe extern "system" fn(
+                        thread_handle: HANDLE,
+                        thread_information_class: i32,
+                        thread_information: *const c_void,
+                        thread_information_length: u32,
+                    ) -> i32;
+                    
+                    let nt_set_info_thread: NtSetInformationThreadFn = std::mem::transmute(f);
+                    let _ = nt_set_info_thread(GetCurrentThread(), 0x11, std::ptr::null(), 0);
+                }
+             }
+        }
+   }
+}
+
+/// Ensure single instance execution.
+pub fn ensure_single_instance() -> bool {
+    use windows::Win32::System::Threading::CreateMutexA;
+    
+    unsafe {
+        let name = "Global\\PASSX_SINGLE_INSTANCE_MUTEX\0";
+        let handle = CreateMutexA(None, true, PCSTR::from_raw(name.as_ptr()));
+        
+        if let Ok(h) = handle {
+             if GetLastError() == ERROR_ALREADY_EXISTS {
+                 return false;
+             }
+             let _ = h; 
+             return true;
+        }
+        
+        let name_local = "Local\\PASSX_SINGLE_INSTANCE_MUTEX\0";
+        let handle = CreateMutexA(None, true, PCSTR::from_raw(name_local.as_ptr()));
+         if let Ok(h) = handle {
+             if GetLastError() == ERROR_ALREADY_EXISTS {
+                 return false;
+             }
+             let _ = h;
+             return true;
+        }
+        
+        true 
+    }
+}
+
+/// Protect memory using DPAPI.
+pub fn protect_memory(ptr: *mut u8, len: usize) -> bool {
+    unsafe {
+        CryptProtectMemory(ptr as *mut c_void, len as u32, CRYPTPROTECTMEMORY_SAME_PROCESS).is_ok()
+    }
+}
+
+/// Unprotect memory using DPAPI.
+pub fn unprotect_memory(ptr: *mut u8, len: usize) -> bool {
+    unsafe {
+        CryptUnprotectMemory(ptr as *mut c_void, len as u32, CRYPTPROTECTMEMORY_SAME_PROCESS).is_ok()
+    }
+}
+
+/// Starts a background thread for continuous security monitoring.
+pub fn start_security_monitor() {
+    thread::spawn(|| {
+        loop {
+            // 1. Checks for user-mode debuggers
+            if virtualization::is_debugged() {
+                 std::process::exit(1);
+            }
+            
+            // 2. Check process invariants (Parent validation)
+            if !invariants::check_invariants() {
+                std::process::exit(1);
+            }
+            
+            // 3. Verification of binary signature (On-disk)
+            if let Ok(valid) = integrity::verify_self_integrity() {
+                if !valid {
+                    std::process::exit(1);
+                }
+            }
+
+            // 4. Verification of memory integrity (Hollowing/Patching detection)
+            if let Some(baseline) = BASELINE_HASH.get() {
+                if !integrity::verify_memory_integrity(baseline) {
+                    // Code segment has been tampered with in RAM
+                    std::process::exit(1);
+                }
+            }
+            
+            thread::sleep(Duration::from_millis(1000));
+        }
+    });
+}

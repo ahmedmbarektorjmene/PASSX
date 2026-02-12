@@ -1,0 +1,184 @@
+* you can move a TOTP entry to the trash by clicking the right mouse button on the entry and then clicking on the delete button.
+* notes are not showing in the detail_panel.
+* you can select a TOTP from existing ones or create a new TOTP for an account from the detail_panel of an account entry.
+* the window should not show or leak when recording the screen.
+* you should modify the password by clicking on the edit button and accepting the security prompt with typing the user password.
+* you can show the password (and cannot change it) by clicking on the eye icon in the detail_panel and it will disappear from the ram and the vram after 10 seconds.
+* the vault can't be be deleted unless with administrator rights.
+* password should be also necessary (required) for device bound encryption (TPM).
+* master password cannot be disabled.
+* you can add Hardware Keys (Yubikey, Nitrokey, etc...) to the vault in the settings. (master password still needed to be available).
+* and you can revoke a hardware key by clicking on the revoke button next to the hardware key in the settings.
+* add an option in settings to sync the vault in other locations (C drive, D drive, E drive, etc...) so that the user can access the vault from other storage devices if the main one is corrupted.
+* add an option in settings (device-bound and portable) to sync the vault to the cloud in google drive very securely (end-to-end encrypted).
+* add a feature that checks if an antivirus (any antivirus) is active and if not, it will prompt the user to enable it and if the user doesn't have an antivirus, it will prompt the user to use the default windows security defender antivirus.
+* security tests should be executed to ensure the security of the package manager from administrator privileges user-mode attacks.
+* add automatic updates from github to the password manager.
+* optimizations needed for less size executable.
+
+------
+
+> Design and implement a **complete verification and security-assurance test suite** for this password manager using a **strict, explicit adversarial threat model**.
+>
+> Testing must assume a **motivated attacker with user-level access**, strong system knowledge, access to the application binary and data files, and the ability to interact through **both valid and malformed interfaces**, including hostile runtime conditions.
+
+Testing must cover **functional correctness, security invariants, adversarial behavior, and regression resistance**.
+
+---
+
+## **1. Unit, Integration & Property-Based Tests (Foundational Layer)**
+
+### Unit Tests
+
+* Verify correctness of cryptographic primitives, key derivation, vault parsing, and lifecycle transitions.
+* Validate error handling always **fails closed**.
+
+### Integration Tests
+
+* Validate complete flows: create → lock → unlock → read → write → relock → crash → recover.
+* Test persistence, upgrades, and backward compatibility under valid and corrupted states.
+
+### Property-Based Security Tests
+
+Define and continuously validate **security invariants**, including:
+
+* Unlocking with any incorrect password must **never** yield a valid key.
+* Corrupted ciphertext must **never** partially decrypt.
+* Locking must fully invalidate all derived secrets.
+* Identical inputs must not produce distinguishable side effects beyond ciphertext.
+
+---
+
+## **2. Memory & Runtime Security Testing (High-Risk Area)**
+
+Simulate inspection and manipulation of **runtime memory**, including **sandboxed / VM-guarded allocations**, to verify:
+
+* No plaintext passwords, master keys, derived keys, or intermediate secrets remain resident longer than strictly necessary.
+* Secrets cannot be reconstructed from:
+
+  * Heap, stack, or freed memory
+  * Allocator reuse
+  * Swap, hibernation images, crash dumps
+* Memory zeroization, page protection, locking, and allocation guards behave correctly under:
+
+  * High load
+  * Forced crashes
+  * Partial failures
+  * Unexpected termination
+
+---
+
+## **3. Cryptographic Resilience & Misuse Resistance**
+
+Validate cryptographic safety beyond correctness:
+
+* Strong KDF configuration (parameters, salts, iteration cost).
+* No static IVs, nonce reuse, predictable randomness, or weak defaults.
+* Resistance to **partial memory disclosure** (key fragments must be useless).
+* No decryptable or transient plaintext states during:
+
+  * Unlock
+  * Lock
+  * Save
+  * Sync
+  * Export / import
+* Strict separation between:
+
+  * Master password
+  * Derived keys
+  * Data-encryption keys
+* Protection against:
+
+  * Rollback attacks
+  * Downgrade attacks
+  * Replay and state reuse
+
+---
+
+## **4. Explicit Attack Simulation (Password-Manager–Specific)**
+
+Actively simulate **real-world attacker techniques**, including:
+
+### **A. Input & Injection Attacks**
+
+* Command injection (CLI, IPC, OS calls).
+* Vault file corruption and format injection (headers, metadata, ciphertext).
+* Path traversal, symlink, and filesystem confusion.
+* Deserialization attacks (if structured formats are used).
+* SQL / storage injection (if embedded databases exist).
+
+### **B. Authentication & Unlock Attacks**
+
+* Brute-force and throttling bypass attempts.
+* Timing leaks during unlock and KDF execution.
+* Offline attacks against stolen vault files.
+* State-confusion during lock/unlock transitions.
+* Race conditions in authentication and key derivation.
+
+### **C. Memory & Process Attacks**
+
+* Memory dumping, heap spraying, and scraping.
+* Runtime inspection and debugger-like observation (without debugger access).
+* TOCTOU attacks on sensitive states.
+* Crash-triggered leakage and panic-path exposure.
+
+### **D. Side-Channel Attacks**
+
+* Timing analysis.
+* Cache and branch-based behavioral differences.
+* Error-message and response-pattern leakage.
+
+### **E. Sandbox & Privilege Attacks**
+
+* Sandbox and VM-guard escape attempts.
+* Privilege escalation via permissions, IPC, or environment variables.
+* Abuse of OS integrations (clipboard, autofill, temp files, focus events).
+
+### **F. Data Exfiltration Vectors**
+
+* Clipboard leakage and lifetime enforcement.
+* Logs, debug artifacts, and telemetry leakage.
+* Swap, hibernation, crash-report exposure.
+* Backup, export, and import abuse.
+
+### **G. Supply-Chain & Dependency Attacks**
+
+* Malicious or compromised dependencies.
+* ABI / FFI boundary misuse.
+* Update, migration, and version-rollback tampering.
+
+---
+
+---
+
+## **5. Bug-Bounty-Style Adversarial Testing**
+
+Conduct iterative attacker-driven testing modeled after professional bug bounty workflows:
+
+* Assume undocumented behavior will be exploited.
+* Chain low-severity issues into high-impact compromises.
+* Focus on undefined, edge, and transition states.
+* Convert every discovered issue into a **permanent regression test**.
+
+---
+
+## **6. Stability, Hardening & Regression Enforcement**
+
+Stress test under:
+
+* High load and repeated lock/unlock cycles.
+* Corrupted inputs and inconsistent state.
+* Forced crashes, power loss, and abrupt termination.
+
+Ensure:
+
+* Security guarantees survive refactors and optimizations.
+* No regression of previously validated security properties.
+
+---
+
+## **Objective**
+
+> Deliver a **production-ready, security-hardened password manager** whose confidentiality, integrity, and isolation guarantees remain intact under **realistic, modern, adversarial attack scenarios**.
+
+---

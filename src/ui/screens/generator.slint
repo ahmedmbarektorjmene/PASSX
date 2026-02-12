@@ -1,0 +1,515 @@
+import { Theme } from "../theme.slint";
+import {
+    PrimaryButton,
+    SecondaryButton,
+    IconButton,
+    Divider,
+    Card,
+    StatusBadge,
+} from "../components.slint";
+import { Slider } from "std-widgets.slint";
+
+export component PasswordGeneratorScreen inherits Rectangle {
+    callback back();
+    callback generate_password(int, bool, bool, bool, bool) -> string;
+    callback copy_to_clipboard(string);
+    background: Theme.background;
+    property <int> length: 16;
+    property <bool> include_uppercase: true;
+    property <bool> include_lowercase: true;
+    property <bool> include_numbers: true;
+    property <bool> include_symbols: true;
+    property <string> generated_password: "";
+    init => {
+        root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+    }
+    VerticalLayout {
+        padding: 40px;
+        alignment: center;
+        spacing: 28px;
+
+        // --- Back button (top-left) ---
+        HorizontalLayout {
+            alignment: start;
+            Rectangle {
+                width: 38px;
+                height: 38px;
+                border-radius: Theme.border-radius;
+                background: gen-back-touch.has-hover ? Theme.surface-hover : Theme.surface;
+                border-width: 1px;
+                border-color: Theme.border;
+                animate background { duration: 200ms; }
+                gen-back-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.back();
+                    }
+                }
+
+                Text {
+                    text: "←";
+                    font-size: 16px;
+                    color: Theme.text-secondary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // --- Header ---
+        VerticalLayout {
+            spacing: 12px;
+            HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 72px;
+                    height: 72px;
+                    Rectangle {
+                        width: 72px;
+                        height: 72px;
+                        border-radius: 36px;
+                        background: Theme.primary-glow;
+                    }
+
+                    Image {
+                        source: @image-url("../../../assets/generator.svg");
+                        width: 36px;
+                        height: 36px;
+                        colorize: Theme.primary;
+                        x: 18px;
+                        y: 18px;
+                    }
+                }
+            }
+
+            Text {
+                text: "Password Generator";
+                horizontal-alignment: center;
+                font-size: Theme.font-size-h1;
+                font-weight: 800;
+                color: Theme.text-primary;
+                letter-spacing: -0.5px;
+            }
+
+            Text {
+                text: "Create high-entropy secure passwords instantly";
+                horizontal-alignment: center;
+                font-size: Theme.font-size-body;
+                color: Theme.text-secondary;
+            }
+        }
+
+        // --- Result Display ---
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                height: 90px;
+                max-width: 580px;
+                horizontal-stretch: 1;
+                background: Theme.surface;
+                border-radius: Theme.border-radius-lg;
+                border-width: 1px;
+                border-color: Theme.border;
+                HorizontalLayout {
+                    padding-left: 24px;
+                    padding-right: 16px;
+                    spacing: 12px;
+                    alignment: center;
+                    Text {
+                        text: root.generated_password;
+                        font-size: 24px;
+                        font-family: "Consolas";
+                        font-weight: 800;
+                        color: Theme.primary;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                        overflow: elide;
+                        letter-spacing: 1px;
+                    }
+
+                    IconButton {
+                        icon: @image-url("../../../assets/generator.svg");
+                        colorize: Theme.text-muted;
+                        clicked => {
+                            root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+                        }
+                    }
+
+                    Rectangle {
+                        width: 1px;
+                        height: 28px;
+                        background: Theme.border;
+                    }
+
+                    PrimaryButton {
+                        text: "Copy";
+                        width: 90px;
+                        height: 38px;
+                        clicked => {
+                            root.copy_to_clipboard(root.generated_password);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Strength indicator
+        HorizontalLayout {
+            spacing: 12px;
+            alignment: center;
+            StatusBadge {
+                text: root.length >= 20 ? "Very Strong" : (root.length >= 14 ? "Strong" : (root.length >= 8 ? "Good" : "Weak"));
+                badge-color: root.length >= 20 ? Theme.success : (root.length >= 14 ? Theme.primary : (root.length >= 8 ? Theme.warning : Theme.danger));
+            }
+
+            Text {
+                text: root.length + " characters";
+                font-size: 11px;
+                color: Theme.text-muted;
+                vertical-alignment: center;
+            }
+        }
+
+        // --- Configuration ---
+        HorizontalLayout {
+            max-width: 580px;
+            spacing: 20px;
+            alignment: center;
+            
+            // Length Control with Slider
+            Card {
+                title: "LENGTH";
+                horizontal-stretch: 1;
+                VerticalLayout {
+                    spacing: 16px;
+                    Text {
+                        text: root.length;
+                        font-size: 36px;
+                        font-weight: 800;
+                        color: Theme.primary;
+                        horizontal-alignment: center;
+                    }
+
+                    // Native Slider
+                    Slider {
+                        minimum: 4;
+                        maximum: 128;
+                        value: root.length;
+                        changed(val) => {
+                            root.length = round(val);
+                            root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+                        }
+                    }
+
+                    HorizontalLayout {
+                        Text {
+                            text: "4";
+                            font-size: 10px;
+                            color: Theme.text-disabled;
+                        }
+
+                        Rectangle {
+                            horizontal-stretch: 1;
+                        }
+
+                        Text {
+                            text: "128";
+                            font-size: 10px;
+                            color: Theme.text-disabled;
+                        }
+                    }
+
+                    // Quick length presets
+                    HorizontalLayout {
+                        spacing: 6px;
+                        alignment: center;
+                        Rectangle {
+                            width: 40px;
+                            height: 26px;
+                            border-radius: 13px;
+                            background: root.length == 8 ? Theme.primary-glow : Theme.surface;
+                            border-width: 1px;
+                            border-color: root.length == 8 ? Theme.primary : Theme.border-subtle;
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.length = 8;
+                                    root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+                                }
+                            }
+
+                            Text {
+                                text: "8";
+                                font-size: 10px;
+                                font-weight: 700;
+                                color: root.length == 8 ? Theme.primary : Theme.text-muted;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        Rectangle {
+                            width: 40px;
+                            height: 26px;
+                            border-radius: 13px;
+                            background: root.length == 16 ? Theme.primary-glow : Theme.surface;
+                            border-width: 1px;
+                            border-color: root.length == 16 ? Theme.primary : Theme.border-subtle;
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.length = 16;
+                                    root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+                                }
+                            }
+
+                            Text {
+                                text: "16";
+                                font-size: 10px;
+                                font-weight: 700;
+                                color: root.length == 16 ? Theme.primary : Theme.text-muted;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        Rectangle {
+                            width: 40px;
+                            height: 26px;
+                            border-radius: 13px;
+                            background: root.length == 32 ? Theme.primary-glow : Theme.surface;
+                            border-width: 1px;
+                            border-color: root.length == 32 ? Theme.primary : Theme.border-subtle;
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.length = 32;
+                                    root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+                                }
+                            }
+
+                            Text {
+                                text: "32";
+                                font-size: 10px;
+                                font-weight: 700;
+                                color: root.length == 32 ? Theme.primary : Theme.text-muted;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        Rectangle {
+                            width: 40px;
+                            height: 26px;
+                            border-radius: 13px;
+                            background: root.length == 64 ? Theme.primary-glow : Theme.surface;
+                            border-width: 1px;
+                            border-color: root.length == 64 ? Theme.primary : Theme.border-subtle;
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.length = 64;
+                                    root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+                                }
+                            }
+
+                            Text {
+                                text: "64";
+                                font-size: 10px;
+                                font-weight: 700;
+                                color: root.length == 64 ? Theme.primary : Theme.text-muted;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Character Sets Options
+            Card {
+                title: "CHARACTER SETS";
+                width: 260px;
+                VerticalLayout {
+                    spacing: 10px;
+                    
+                    // Uppercase
+                    Rectangle {
+                        height: 36px;
+                        border-radius: Theme.border-radius;
+                        background: uc-touch.has-hover ? Theme.surface : Colors.transparent;
+                        animate background { duration: 150ms; }
+                        uc-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.include_uppercase = !root.include_uppercase;
+                                root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+                            }
+                        }
+
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            spacing: 10px;
+                            Rectangle {
+                                width: 20px;
+                                height: 20px;
+                                background: root.include_uppercase ? Theme.primary : Theme.surface-subtle;
+                                border-radius: 5px;
+                                border-width: root.include_uppercase ? 0 : 1px;
+                                border-color: Theme.border;
+                                animate background { duration: 200ms; }
+                                if (root.include_uppercase): Text {
+                                    text: "✓";
+                                    color: white;
+                                    font-weight: 800;
+                                    font-size: 11px;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            Text {
+                                text: "Uppercase (A-Z)";
+                                color: Theme.text-primary;
+                                font-size: 13px;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Lowercase
+                    Rectangle {
+                        height: 36px;
+                        border-radius: Theme.border-radius;
+                        background: lc-touch.has-hover ? Theme.surface : Colors.transparent;
+                        animate background { duration: 150ms; }
+                        lc-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.include_lowercase = !root.include_lowercase;
+                                root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+                            }
+                        }
+
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            spacing: 10px;
+                            Rectangle {
+                                width: 20px;
+                                height: 20px;
+                                background: root.include_lowercase ? Theme.primary : Theme.surface-subtle;
+                                border-radius: 5px;
+                                border-width: root.include_lowercase ? 0 : 1px;
+                                border-color: Theme.border;
+                                animate background { duration: 200ms; }
+                                if (root.include_lowercase): Text {
+                                    text: "✓";
+                                    color: white;
+                                    font-weight: 800;
+                                    font-size: 11px;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            Text {
+                                text: "Lowercase (a-z)";
+                                color: Theme.text-primary;
+                                font-size: 13px;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Numbers
+                    Rectangle {
+                        height: 36px;
+                        border-radius: Theme.border-radius;
+                        background: num-touch.has-hover ? Theme.surface : Colors.transparent;
+                        animate background { duration: 150ms; }
+                        num-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.include_numbers = !root.include_numbers;
+                                root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+                            }
+                        }
+
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            spacing: 10px;
+                            Rectangle {
+                                width: 20px;
+                                height: 20px;
+                                background: root.include_numbers ? Theme.primary : Theme.surface-subtle;
+                                border-radius: 5px;
+                                border-width: root.include_numbers ? 0 : 1px;
+                                border-color: Theme.border;
+                                animate background { duration: 200ms; }
+                                if (root.include_numbers): Text {
+                                    text: "✓";
+                                    color: white;
+                                    font-weight: 800;
+                                    font-size: 11px;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            Text {
+                                text: "Numbers (0-9)";
+                                color: Theme.text-primary;
+                                font-size: 13px;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Symbols
+                    Rectangle {
+                        height: 36px;
+                        border-radius: Theme.border-radius;
+                        background: sym-touch.has-hover ? Theme.surface : Colors.transparent;
+                        animate background { duration: 150ms; }
+                        sym-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.include_symbols = !root.include_symbols;
+                                root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+                            }
+                        }
+
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            spacing: 10px;
+                            Rectangle {
+                                width: 20px;
+                                height: 20px;
+                                background: root.include_symbols ? Theme.primary : Theme.surface-subtle;
+                                border-radius: 5px;
+                                border-width: root.include_symbols ? 0 : 1px;
+                                border-color: Theme.border;
+                                animate background { duration: 200ms; }
+                                if (root.include_symbols): Text {
+                                    text: "✓";
+                                    color: white;
+                                    font-weight: 800;
+                                    font-size: 11px;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            Text {
+                                text: "Symbols (!@#$)";
+                                color: Theme.text-primary;
+                                font-size: 13px;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

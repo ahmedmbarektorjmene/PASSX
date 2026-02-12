@@ -1,0 +1,160 @@
+// Account Add/Edit Modal
+import { Theme } from "../theme.slint";
+import {
+    PrimaryButton,
+    SecondaryButton,
+    Divider,
+    Label,
+} from "../components.slint";
+import { ScrollView, LineEdit } from "std-widgets.slint";
+
+export component AccountModal inherits Rectangle {
+    in-out property <string> edit-id: "";
+    in-out property <string> edit-title: "";
+    in-out property <string> edit-username: "";
+    in-out property <string> edit-password: "";
+    in-out property <string> edit-url: "";
+    callback save(string, string, string, string, string); // id, title, username, password, url
+    callback close;
+    background: rgba(0, 0, 0, 0.6);
+    TouchArea {
+        clicked => {
+            root.close();
+        }
+    }
+
+    Rectangle {
+        width: 440px;
+        height: 480px;
+        background: Theme.surface;
+        border-radius: Theme.border-radius-xl;
+        border-width: 1px;
+        border-color: Theme.border;
+        TouchArea { }
+
+        VerticalLayout {
+            padding: 28px;
+            spacing: 20px;
+
+            // Modal Header
+            HorizontalLayout {
+                spacing: 12px;
+                Rectangle {
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 10px;
+                    background: Theme.primary-glow;
+                    Image {
+                        source: root.edit-id == "" ? @image-url("../../../assets/plus.svg") : @image-url("../../../assets/edit.svg");
+                        width: 20px;
+                        height: 20px;
+                        colorize: Theme.primary;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 2px;
+                    Text {
+                        text: root.edit-id == "" ? "Add Account" : "Edit Account";
+                        font-size: Theme.font-size-h2;
+                        font-weight: 800;
+                        color: Theme.text-primary;
+                    }
+
+                    Text {
+                        text: root.edit-id == "" ? "Create a new password entry" : "Update account details";
+                        font-size: Theme.font-size-small;
+                        color: Theme.text-muted;
+                    }
+                }
+            }
+
+            Divider { }
+
+            ScrollView {
+                VerticalLayout {
+                    spacing: 14px;
+
+                    // Title
+                    VerticalLayout {
+                        spacing: 6px;
+                        Label {
+                            text: "TITLE";
+                        }
+
+                        LineEdit {
+                            text <=> root.edit-title;
+                            placeholder-text: "e.g. Google, Amazon";
+                            font-size: 13px;
+                        }
+                    }
+
+                    // Username
+                    VerticalLayout {
+                        spacing: 6px;
+                        Label {
+                            text: "USERNAME";
+                        }
+
+                        LineEdit {
+                            text <=> root.edit-username;
+                            placeholder-text: "username@example.com";
+                            font-size: 13px;
+                        }
+                    }
+
+                    // Password
+                    VerticalLayout {
+                        spacing: 6px;
+                        Label {
+                            text: "PASSWORD";
+                        }
+
+                        LineEdit {
+                            text <=> root.edit-password;
+                            placeholder-text: "Secret Password";
+                            font-size: 13px;
+                        }
+                    }
+
+                    // Website
+                    VerticalLayout {
+                        spacing: 6px;
+                        Label {
+                            text: "WEBSITE";
+                        }
+
+                        LineEdit {
+                            text <=> root.edit-url;
+                            placeholder-text: "https://...";
+                            font-size: 13px;
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 10px;
+                alignment: end;
+                SecondaryButton {
+                    text: "Cancel";
+                    width: 100px;
+                    clicked => {
+                        root.close();
+                    }
+                }
+
+                PrimaryButton {
+                    text: root.edit-id == "" ? "Add Account" : "Save Changes";
+                    width: 140px;
+                    enabled: root.edit-title != "";
+                    clicked => {
+                        root.save(root.edit-id, root.edit-title, root.edit-username, root.edit-password, root.edit-url);
+                        root.close();
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,825 @@
+import { Theme } from "../theme.slint";
+import {
+    SidebarItem,
+    VaultEntryItem,
+    IconButton,
+    PrimaryButton,
+    SecondaryButton,
+    DangerButton,
+    Divider,
+    Card,
+    StatusBadge,
+    ContextMenuItem,
+    ConfirmDialog,
+    Label,
+} from "../components.slint";
+import { ScrollView, LineEdit } from "std-widgets.slint";
+import { TotpCard } from "./totp_card.slint";
+import { DetailPanel } from "./detail_panel.slint";
+import { AccountModal } from "./account_modal.slint";
+import { TotpModal } from "./totp_modal.slint";
+
+export struct VaultEntryData {
+    id: string,
+    title: string,
+    username: string,
+    url: string,
+    icon_text: string,
+    deleted: bool,
+    folder: string,
+    icon: image,
+    has_icon: bool,
+    totp_code: string,
+    has_totp: bool,
+    entry_type: string, // "account" or "totp"
+}
+
+export component MainVaultScreen inherits Rectangle {
+    in property <[VaultEntryData]> entries;
+    in property <string> selected-entry-id;
+    in-out property <string> revealed-password;
+    in-out property <bool> is-password-revealed;
+    in property <float> totp-progress;
+    callback open-generator();
+    callback open-settings();
+
+    // Filtering
+    callback perform-search(string, string); // query, category
+
+    // Actions
+    callback select-entry(string);
+    callback lock-vault();
+    callback save-entry(string, string, string, string, string); // id, title, username, password, url
+    callback save-totp(string, string, string, string); // id, name, secret, issuer
+    callback toggle-favorite(string);
+    callback delete-entry(string);
+    callback restore-entry(string);
+    callback copy-username(string);
+    callback copy-password(string);
+    callback reveal-password(string);
+    callback copy-to-clipboard(string);
+    // New callback to fetch details synchronously
+    callback get-entry-details(string) -> VaultEntryData;
+
+    // QR Code Scanning
+    callback scan-qr-from-screen();
+    callback scan-qr-from-clipboard();
+    callback scan-qr-from-file();
+    in-out property <string> qr-scan-error: "";
+    in-out property <string> qr-scanned-account: "";
+    in-out property <string> qr-scanned-secret: "";
+    in-out property <string> qr-scanned-issuer: "";
+    background: Theme.background;
+
+    // State
+    property <string> current-filter: "accounts";
+    property <string> current-search: "";
+    property <bool> show-modal: false;
+    property <bool> show-totp-modal: false;
+    property <string> edit-id: "";
+    property <string> edit-title: "";
+    property <string> edit-username: "";
+    property <string> edit-password: "";
+    property <string> edit-url: "";
+    // TOTP modal fields
+    property <string> totp-edit-id: "";
+    property <string> totp-name: "";
+    property <string> totp-issuer: "";
+    property <string> totp-secret: "";
+    // Context menu
+    property <bool> show-context-menu: false;
+    property <length> context-menu-x: 0px;
+    property <length> context-menu-y: 0px;
+    property <string> context-menu-entry-id: "";
+    property <int> context-menu-entry-index: -1;
+    // Confirm dialog
+    property <bool> show-confirm-dialog: false;
+    property <string> confirm-entry-id: "";
+
+    // --- Cached selected entry data (updated on selection or list refresh) ---
+    property <bool> has-selection: root.selected-entry-id != "";
+    property <string> sel-title: "";
+    property <string> sel-username: "";
+    property <string> sel-url: "";
+    property <string> sel-icon-text: "";
+    property <image> sel-icon;
+    property <bool> sel-has-icon: false;
+    property <bool> sel-deleted: false;
+    property <bool> sel-has-totp: false;
+    property <string> sel-totp-code: "";
+
+    // Refresh cached properties whenever entries or selection changes
+    changed entries => {
+        root.refresh-selection();
+    }
+    changed selected-entry-id => {
+        root.refresh-selection();
+        root.is-password-revealed = false;
+        root.revealed-password = "";
+    }
+    function refresh-selection() {
+        if (root.selected-entry-id == "") {
+            return;
+        }
+        let d = root.get-entry-details(root.selected-entry-id);
+        if (d.id == root.selected-entry-id) {
+            root.sel-title = d.title;
+            root.sel-username = d.username;
+            root.sel-url = d.url;
+            root.sel-icon-text = d.icon_text;
+            root.sel-icon = d.icon;
+            root.sel-has-icon = d.has_icon;
+            root.sel-deleted = d.deleted;
+            root.sel-has-totp = d.has_totp;
+            root.sel-totp-code = d.totp_code;
+        }
+    }
+    HorizontalLayout {
+        // --- Sidebar ---
+        Rectangle {
+            width: 240px;
+            horizontal-stretch: 0;
+            background: Theme.background-alt;
+            VerticalLayout {
+                padding-top: 20px;
+                padding-bottom: 16px;
+                padding-left: 16px;
+                padding-right: 16px;
+                spacing: 20px;
+
+                // Workspace Header
+                Rectangle {
+                    height: 52px;
+                    border-radius: Theme.border-radius-lg;
+                    background: Theme.surface;
+                    border-width: 1px;
+                    border-color: Theme.border-subtle;
+                    HorizontalLayout {
+                        padding-left: 14px;
+                        padding-right: 14px;
+                        spacing: 10px;
+                        Rectangle {
+                            width: 28px;
+                            height: 28px;
+                            background: Theme.primary;
+                            border-radius: 8px;
+                            Text {
+                                text: "P";
+                                font-weight: 800;
+                                font-size: 13px;
+                                color: white;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 1px;
+                            Text {
+                                text: "Personal Vault";
+                                color: Theme.text-primary;
+                                font-weight: 700;
+                                font-size: 13px;
+                            }
+
+                            Text {
+                                text: "Encrypted · Local";
+                                color: Theme.text-muted;
+                                font-size: 9px;
+                                font-weight: 600;
+                                letter-spacing: 0.5px;
+                            }
+                        }
+                    }
+                }
+
+                // Main Navigation
+                VerticalLayout {
+                    spacing: 2px;
+                    SidebarItem {
+                        text: "Accounts";
+                        icon: @image-url("../../../assets/lock.svg");
+                        selected: root.current-filter == "accounts";
+                        clicked => {
+                            root.current-filter = "accounts";
+                            root.select-entry("");
+                            root.perform-search(root.current-search, "accounts");
+                        }
+                    }
+
+                    SidebarItem {
+                        text: "Authenticators";
+                        icon: @image-url("../../../assets/shield.svg");
+                        selected: root.current-filter == "totp";
+                        clicked => {
+                            root.current-filter = "totp";
+                            root.select-entry("");
+                            root.perform-search(root.current-search, "totp");
+                        }
+                    }
+
+                    SidebarItem {
+                        text: "Trash";
+                        icon: @image-url("../../../assets/trash.svg");
+                        selected: root.current-filter == "trash";
+                        clicked => {
+                            root.current-filter = "trash";
+                            root.select-entry("");
+                            root.perform-search(root.current-search, "trash");
+                        }
+                    }
+                }
+
+                Divider { }
+
+                // Password Generator tab
+                VerticalLayout {
+                    spacing: 2px;
+                    SidebarItem {
+                        text: "Password Generator";
+                        icon: @image-url("../../../assets/generator.svg");
+                        clicked => {
+                            root.open-generator();
+                        }
+                    }
+
+                    SidebarItem {
+                        text: "Settings";
+                        icon: @image-url("../../../assets/settings.svg");
+                        clicked => {
+                            root.open-settings();
+                        }
+                    }
+                }
+
+                Rectangle {
+                    vertical-stretch: 1;
+                }
+
+                // Lock button at very bottom
+                Divider { }
+
+                Rectangle {
+                    height: 40px;
+                    border-radius: Theme.border-radius;
+                    background: lock-touch.has-hover ? Theme.danger-soft : Colors.transparent;
+                    animate background { duration: 200ms; }
+                    lock-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.lock-vault();
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding-left: 20px;
+                        spacing: 12px;
+                        VerticalLayout {
+                            alignment: center;
+                            Image {
+                                source: @image-url("../../../assets/lock.svg");
+                                width: 18px;
+                                height: 18px;
+                                colorize: lock-touch.has-hover ? Theme.danger : Theme.text-muted;
+                                animate colorize { duration: 200ms; }
+                            }
+                        }
+
+                        Text {
+                            text: "Lock Vault";
+                            color: lock-touch.has-hover ? Theme.danger : Theme.text-muted;
+                            font-size: 13px;
+                            font-weight: 600;
+                            vertical-alignment: center;
+                            animate color { duration: 200ms; }
+                        }
+                    }
+                }
+            }
+
+            // Subtle sidebar border
+            Rectangle {
+                x: parent.width - 1px;
+                width: 1px;
+                background: Theme.border-subtle;
+            }
+        }
+
+        // ===================================================================
+        // AUTHENTICATORS VIEW (Proton-style card grid)
+        // ===================================================================
+        if (root.current-filter == "totp"): Rectangle {
+            horizontal-stretch: 1;
+            background: Theme.background;
+            VerticalLayout {
+                // Search + Add header
+                Rectangle {
+                    height: 72px;
+                    VerticalLayout {
+                        padding-left: 24px;
+                        padding-right: 24px;
+                        padding-top: 16px;
+                        padding-bottom: 12px;
+                        HorizontalLayout {
+                            spacing: 10px;
+
+                            // Native search input
+                            Rectangle {
+                                horizontal-stretch: 1;
+                                height: 40px;
+                                border-radius: Theme.border-radius;
+                                background: Theme.surface;
+                                border-width: 1px;
+                                border-color: totp-search.has-focus ? Theme.primary : Theme.border;
+                                animate border-color { duration: 200ms; }
+                                totp-search := LineEdit {
+                                    width: parent.width;
+                                    height: parent.height;
+                                    placeholder-text: "Search authenticators...";
+                                    font-size: 13px;
+                                    edited(text) => {
+                                        root.current-search = text;
+                                        root.perform-search(text, "totp");
+                                    }
+                                }
+                            }
+
+                            // Add button
+                            PrimaryButton {
+                                text: "+ New";
+                                width: 90px;
+                                height: 40px;
+                                clicked => {
+                                    root.totp-edit-id = "";
+                                    root.totp-name = "";
+                                    root.totp-issuer = "";
+                                    root.totp-secret = "";
+                                    root.qr-scan-error = "";
+                                    root.qr-scanned-account = "";
+                                    root.qr-scanned-secret = "";
+                                    root.qr-scanned-issuer = "";
+                                    root.show-totp-modal = true;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Divider { }
+
+                // TOTP Cards Grid
+                ScrollView {
+                    VerticalLayout {
+                        padding: 24px;
+                        spacing: 16px;
+                        alignment: start;
+                        for entry[index] in root.entries: Rectangle {
+                            height: 160px;
+                            TotpCard {
+                                width: 100%;
+                                title: entry.title;
+                                subtitle: entry.username;
+                                code: entry.totp_code;
+                                icon-char: entry.icon_text;
+                                icon: entry.icon;
+                                has-icon: entry.has_icon;
+                                progress: root.totp-progress;
+                                clicked => {
+                                    root.copy-to-clipboard(entry.totp_code);
+                                }
+                                edit-clicked => {
+                                    debug("Editing TOTP ID:", entry.id);
+                                    root.totp-edit-id = entry.id;
+                                    root.totp-name = entry.title;
+                                    root.totp-issuer = entry.username;
+                                    root.totp-secret = "";
+                                    root.qr-scan-error = "";
+                                    root.qr-scanned-account = "";
+                                    root.qr-scanned-secret = "";
+                                    root.qr-scanned-issuer = "";
+                                    root.show-totp-modal = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+                // Empty state
+                if (root.entries.length == 0): VerticalLayout {
+                alignment: center;
+                spacing: 14px;
+                vertical-stretch: 1;
+                HorizontalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 64px;
+                        height: 64px;
+                        border-radius: 32px;
+                        background: Theme.surface;
+                        Image {
+                            source: @image-url("../../../assets/shield.svg");
+                            width: 28px;
+                            height: 28px;
+                            colorize: Theme.text-disabled;
+                        }
+                    }
+                }
+
+                Text {
+                    text: "No authenticators yet";
+                    font-size: 15px;
+                    font-weight: 600;
+                    color: Theme.text-muted;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    text: "Click \"+ New\" to add a TOTP authenticator";
+                    font-size: 12px;
+                    color: Theme.text-disabled;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+
+        // ===================================================================
+        // ACCOUNTS / FAVORITES / TRASH VIEW (List + Detail)
+        // ===================================================================
+        if (root.current-filter != "totp"): Rectangle {
+            horizontal-stretch: 0;
+            width: 300px;
+            background: Theme.background;
+            VerticalLayout {
+                // Search Header
+                Rectangle {
+                    height: 72px;
+                    VerticalLayout {
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        padding-top: 16px;
+                        padding-bottom: 12px;
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            // Native search input
+                            Rectangle {
+                                horizontal-stretch: 1;
+                                height: 38px;
+                                border-radius: Theme.border-radius;
+                                background: Theme.surface;
+                                border-width: 1px;
+                                border-color: search-input.has-focus ? Theme.primary : Theme.border;
+                                animate border-color { duration: 200ms; }
+                                search-input := LineEdit {
+                                    width: parent.width;
+                                    height: parent.height;
+                                    placeholder-text: "Search vault...";
+                                    font-size: 13px;
+                                    edited(text) => {
+                                        root.current-search = text;
+                                        root.perform-search(text, root.current-filter);
+                                    }
+                                }
+                            }
+
+                            // Smart Add button (only for non-trash)
+                            if (root.current-filter != "trash"): IconButton {
+                                icon: @image-url("../../../assets/plus.svg");
+                                colorize: Theme.primary;
+                                clicked => {
+                                    root.edit-id = "";
+                                    root.edit-title = "";
+                                    root.edit-username = "";
+                                    root.edit-password = "";
+                                    root.edit-url = "";
+                                    root.show-modal = true;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Divider { }
+
+                // Filter label
+                Rectangle {
+                    height: 30px;
+                    HorizontalLayout {
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        Text {
+                            text: root.current-filter == "accounts" ? "ACCOUNTS" : root.current-filter == "trash" ? "TRASH" : "ITEMS";
+                            color: Theme.text-disabled;
+                            font-size: 9px;
+                            font-weight: 800;
+                            letter-spacing: 1.5px;
+                            vertical-alignment: center;
+                        }
+
+                        Rectangle {
+                            horizontal-stretch: 1;
+                        }
+
+                        Text {
+                            text: root.entries.length;
+                            color: Theme.text-disabled;
+                            font-size: 10px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // List Area
+                ScrollView {
+                    VerticalLayout {
+                        padding-top: 4px;
+                        padding-bottom: 20px;
+                        alignment: start;
+                        for entry[index] in root.entries: VaultEntryItem {
+                            title: entry.title;
+                            subtext: entry.username;
+                            // Show initial if explicit icon missing, OR show default type icon?
+                            // User asked for visual distinction. 
+                            // Let's use the icon-char if available for specific sites, but maybe add a secondary badge?
+                            // Or default to type icon if no specific icon.
+                            icon-char: entry.icon_text;
+                            // Use type-specific default icon if no custom icon is present
+                            icon: entry.has-icon ? entry.icon : (entry.entry_type == "totp" ? @image-url("../../../assets/shield.svg") : @image-url("../../../assets/lock.svg"));
+                            // Always show icon content (either custom or default)
+                            has-icon: true;
+                            selected: root.selected-entry-id == entry.id;
+                            clicked => {
+                                root.select-entry(entry.id);
+                                root.show-context-menu = false;
+                            }
+                            right-clicked(x, y) => {
+                                root.context-menu-entry-id = entry.id;
+                                root.context-menu-entry-index = index;
+                                root.context-menu-x = x + 240px;
+                                root.context-menu-y = y;
+                                root.show-context-menu = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+
+                // Empty state for entry list
+                if (root.entries.length == 0): VerticalLayout {
+                alignment: center;
+                spacing: 12px;
+                vertical-stretch: 1;
+                HorizontalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 56px;
+                        height: 56px;
+                        border-radius: 28px;
+                        background: Theme.surface;
+                        Image {
+                            source: root.current-filter == "trash" ? @image-url("../../../assets/trash.svg") : @image-url("../../../assets/lock.svg");
+                            width: 24px;
+                            height: 24px;
+                            colorize: Theme.text-disabled;
+                        }
+                    }
+                }
+
+                Text {
+                    text: root.current-filter == "trash" ? "Trash is empty" : "No accounts yet";
+                    font-size: 13px;
+                    color: Theme.text-muted;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    text: root.current-filter == "trash" ? "Deleted items will appear here" : "Click + to add your first account";
+                    font-size: 11px;
+                    color: Theme.text-disabled;
+                    horizontal-alignment: center;
+                }
+            }
+            Rectangle {
+                x: parent.width - 1px;
+                width: 1px;
+                background: Theme.border-subtle;
+            }
+        } // End Accounts View
+
+        // --- Detail Area (Accounts/Favorites/Trash only) ---
+        if (root.current-filter != "totp"): DetailPanel {
+            has-selection: root.has-selection;
+            selected-entry-id: root.selected-entry-id;
+            // Cached properties mapping
+            sel-title: root.sel-title;
+            sel-username: root.sel-username;
+            sel-url: root.sel-url;
+            sel-icon-text: root.sel-icon-text;
+            sel-icon: root.sel-icon;
+            sel-has-icon: root.sel-has-icon;
+            sel-deleted: root.sel-deleted;
+            sel-has-totp: root.sel-has-totp;
+            sel-totp-code: root.sel-totp-code;
+            // Password reveal state
+            revealed-password <=> root.revealed-password;
+            is-password-revealed <=> root.is-password-revealed;
+            totp-progress: root.totp-progress;
+
+            // Callbacks
+
+            edit-entry(id, title, user, url) => {
+                root.edit-id = id;
+                root.edit-title = title;
+                root.edit-username = user;
+                root.edit-password = "";
+                root.edit-url = url;
+                root.show-modal = true;
+            }
+            restore-entry(id) => {
+                root.restore-entry(id);
+                root.select-entry("");
+            }
+            delete-entry(id) => {
+                root.delete-entry(id);
+                root.select-entry("");
+            }
+            trash-entry(id) => {
+                root.delete-entry(id);
+                root.select-entry("");
+            }
+            copy-username(id) => {
+                root.copy-username(id);
+            }
+            copy-password(id) => {
+                root.copy-password(id);
+            }
+            reveal-password(id) => {
+                root.reveal-password(id);
+            }
+            copy-to-clipboard(t) => {
+                root.copy-to-clipboard(t);
+            }
+            confirm-delete(id) => {
+                root.confirm-entry-id = id;
+                root.show-confirm-dialog = true;
+            }
+        }
+    } // End HorizontalLayout
+
+
+    // --- Context Menu Overlay ---
+    if (root.show-context-menu): Rectangle {
+        background: Colors.transparent;
+        TouchArea {
+            clicked => {
+                root.show-context-menu = false;
+            }
+        }
+
+        Rectangle {
+            x: root.context-menu-x;
+            y: root.context-menu-y;
+            width: 200px;
+            background: Theme.surface;
+            border-radius: Theme.border-radius;
+            border-width: 1px;
+            border-color: Theme.border;
+            VerticalLayout {
+                padding: 6px;
+                spacing: 2px;
+                ContextMenuItem {
+                    label: "Copy Username";
+                    icon: @image-url("../../../assets/copy.svg");
+                    clicked => {
+                        root.copy-username(root.context-menu-entry-id);
+                        root.show-context-menu = false;
+                    }
+                }
+
+                ContextMenuItem {
+                    label: "Copy Password";
+                    icon: @image-url("../../../assets/lock.svg");
+                    clicked => {
+                        root.copy-password(root.context-menu-entry-id);
+                        root.show-context-menu = false;
+                    }
+                }
+
+                Divider { }
+
+                ContextMenuItem {
+                    label: "Edit";
+                    icon: @image-url("../../../assets/edit.svg");
+                    clicked => {
+                        // Use callback instead of loop
+                        let d = root.get-entry-details(root.context-menu-entry-id);
+                        if (d.id == root.context-menu-entry-id) {
+                            root.edit-id = d.id;
+                            root.edit-title = d.title;
+                            root.edit-username = d.username;
+                            root.edit-password = "";
+                            root.edit-url = d.url;
+                            root.show-modal = true;
+                        }
+                        root.show-context-menu = false;
+                    }
+                }
+
+                Divider { }
+
+                if (root.current-filter == "trash"): ContextMenuItem {
+                    label: "Restore";
+                    icon: @image-url("../../../assets/vault.svg");
+                    text-color: Theme.success;
+                    clicked => {
+                        root.restore-entry(root.context-menu-entry-id);
+                        root.show-context-menu = false;
+                    }
+                }
+                if (root.current-filter == "trash"): ContextMenuItem {
+                    label: "Delete Permanently";
+                    icon: @image-url("../../../assets/trash.svg");
+                    text-color: Theme.danger;
+                    clicked => {
+                        root.confirm-entry-id = root.context-menu-entry-id;
+                        root.show-confirm-dialog = true;
+                        root.show-context-menu = false;
+                    }
+                }
+                if (root.current-filter != "trash"): ContextMenuItem {
+                    label: "Move to Trash";
+                    icon: @image-url("../../../assets/trash.svg");
+                    text-color: Theme.danger;
+                    clicked => {
+                        root.delete-entry(root.context-menu-entry-id);
+                        root.select-entry("");
+                        root.show-context-menu = false;
+                    }
+                }
+            }
+        }
+    }
+
+    // --- Confirm Delete Dialog ---
+    if (root.show-confirm-dialog): ConfirmDialog {
+        title: "Delete Permanently?";
+        message: "This entry will be permanently deleted. This action cannot be undone.";
+        confirm-text: "Delete";
+        cancel-text: "Cancel";
+        confirmed => {
+            root.delete-entry(root.confirm-entry-id);
+            root.select-entry("");
+            root.show-confirm-dialog = false;
+        }
+        cancelled => {
+            root.show-confirm-dialog = false;
+        }
+    }
+
+    // --- Add/Edit Account Modal ---
+    if (root.show-modal): AccountModal {
+        edit-id <=> root.edit-id;
+        edit-title <=> root.edit-title;
+        edit-username <=> root.edit-username;
+        edit-password <=> root.edit-password;
+        edit-url <=> root.edit-url;
+        save(id, title, user, pass, url) => {
+            root.save-entry(id, title, user, pass, url);
+        }
+        close => {
+            root.show-modal = false;
+        }
+    }
+
+    // --- Add/Edit TOTP Modal ---
+    if (root.show-totp-modal): TotpModal {
+        edit-id <=> root.totp-edit-id;
+        name <=> root.totp-name;
+        issuer <=> root.totp-issuer;
+        secret <=> root.totp-secret;
+        // QR scan results
+        scan-error: root.qr-scan-error;
+        scanned-account: root.qr-scanned-account;
+        scanned-secret: root.qr-scanned-secret;
+        scanned-issuer: root.qr-scanned-issuer;
+        save(id, n, s, i) => {
+            root.save-totp(id, n, s, i);
+        }
+        scan-screen => {
+            root.scan-qr-from-screen();
+        }
+        scan-clipboard => {
+            root.scan-qr-from-clipboard();
+        }
+        scan-file => {
+            root.scan-qr-from-file();
+        }
+        close => {
+            root.show-totp-modal = false;
+        }
+    }
+}
