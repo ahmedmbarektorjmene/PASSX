@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-wix
+        run: cargo install cargo-wix
+
+      - name: Build Release
+        run: cargo build --release
+
+      - name: Setup Certificate
+        run: |
+          $certDir = Join-Path $env:runner_temp "certs"
+          New-Item -ItemType Directory -Force -Path $certDir | Out-Null
+          $pfxPath = Join-Path $certDir "signing_cert.pfx"
+          
+          if ($env:SIGNING_CERT) {
+              Write-Host "Using provided SIGNING_CERT secret..."
+              $bytes = [System.Convert]::FromBase64String($env:SIGNING_CERT)
+              [System.IO.File]::WriteAllBytes($pfxPath, $bytes)
+          } else {
+              Write-Host "No SIGNING_CERT secret found. Generating Self-Signed Certificate..."
+              $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=PassX Self-Signed" -CertStoreLocation "Cert:\CurrentUser\My"
+              $password = ConvertTo-SecureString -String "password" -Force -AsPlainText
+              Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $password
+          }
+          
+          # Import to User Store just in case
+          Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation "Cert:\CurrentUser\My" -Password (ConvertTo-SecureString -String "password" -Force -AsPlainText)
+          
+          echo "PFX_PATH=$pfxPath" >> $env:GITHUB_ENV
+        env:
+          SIGNING_CERT: ${{ secrets.SIGNING_CERT }}
+
+      - name: Create MSI Installer
+        run: cargo wix --no-build --nocapture
+
+      - name: Sign MSI
+        run: |
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+          if (-not (Test-Path $signtool)) {
+              # Fallback logic or error
+              Write-Error "Signtool not found!"
+          }
+          
+          $files = Get-ChildItem "target\wix\*.msi"
+          foreach ($file in $files) {
+              Write-Host "Signing $($file.FullName)..."
+              & $signtool sign /f $env:PFX_PATH /p "password" /tr http://timestamp.digicert.com /td sha256 /fd sha256 $file.FullName
+          }
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            target/wix/*.msi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

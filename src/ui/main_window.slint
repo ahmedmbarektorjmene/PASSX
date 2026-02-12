@@ -5,10 +5,11 @@ import { UnlockScreen } from "./screens/unlock.slint";
 import { MainVaultScreen, VaultEntryData } from "./screens/main_vault.slint";
 import { PasswordGeneratorScreen } from "./screens/generator.slint";
 import { SettingsScreen } from "./screens/settings.slint";
+import { UpdateWindow } from "update_window.slint";
 
-export { VaultEntryData }
+export { VaultEntryData, MainWindow, UpdateWindow }
 
-export component MainWindow inherits Window {
+component MainWindow inherits Window {
     title: "PassX — Secure Vault";
     icon: @image-url("../../assets/logo.jpg");
     default-font-family: Theme.font-family;
