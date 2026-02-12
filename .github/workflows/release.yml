@@ -53,11 +53,13 @@ jobs:
 
       - name: Sign MSI
         run: |
-          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
-          if (-not (Test-Path $signtool)) {
-              # Fallback logic or error
+          $signtool = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+
+          if (-not $signtool) {
               Write-Error "Signtool not found!"
+              exit 1
           }
+          Write-Host "Using Signtool: $signtool"
 
           $files = Get-ChildItem "target\wix\*.msi"
           foreach ($file in $files) {
