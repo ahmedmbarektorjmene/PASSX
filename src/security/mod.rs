@@ -17,6 +17,9 @@ use std::ffi::c_void;
 use crate::memory::virtualization;
 use crate::runtime::{integrity, invariants};
 
+pub mod anti_injection;
+pub mod antivirus;
+
 static INIT: Once = Once::new();
 static BASELINE_HASH: OnceLock<[u8; 32]> = OnceLock::new();
 
@@ -32,6 +35,12 @@ struct ProcessMitigationChildProcessPolicy {
 
 #[repr(C)]
 struct ProcessMitigationHandleCheckPolicy {
+    flags: u32,
+}
+
+
+#[repr(C)]
+struct ProcessMitigationBinarySignaturePolicy {
     flags: u32,
 }
 
@@ -61,6 +70,16 @@ pub fn enable_process_mitigation_policies() {
                 ProcessStrictHandleCheckPolicy,
                 &handle_check_policy as *const _ as *const c_void,
                 std::mem::size_of_val(&handle_check_policy),
+            );
+
+            use windows::Win32::System::Threading::PROCESS_MITIGATION_POLICY;
+
+            // 5. Binary Signature Policy (CIG) - MicrosoftSignedOnly (Stop Unsigned DLLs)
+            let signature_policy = ProcessMitigationBinarySignaturePolicy { flags: 1 }; // MicrosoftSignedOnly = 1
+            let _ = SetProcessMitigationPolicy(
+                PROCESS_MITIGATION_POLICY(8), // ProcessSignaturePolicy
+                &signature_policy as *const _ as *const c_void,
+                std::mem::size_of_val(&signature_policy),
             );
 
             // 4. Capture baseline memory hash for code integrity
@@ -176,6 +195,8 @@ pub fn unprotect_memory(ptr: *mut u8, len: usize) -> bool {
     }
 }
 
+
+
 /// Starts a background thread for continuous security monitoring.
 pub fn start_security_monitor() {
     thread::spawn(|| {
@@ -184,28 +205,42 @@ pub fn start_security_monitor() {
             if virtualization::is_debugged() {
                  std::process::exit(1);
             }
+
+            // Register DLL Notification Callback (Anti-Injection)
+            static REGISTER_ONCE: Once = Once::new();
+            REGISTER_ONCE.call_once(|| {
+                anti_injection::register_dll_notification();
+            });
             
             // 2. Check process invariants (Parent validation)
             if !invariants::check_invariants() {
-                std::process::exit(1);
-            }
-            
-            // 3. Verification of binary signature (On-disk)
-            if let Ok(valid) = integrity::verify_self_integrity() {
-                if !valid {
-                    std::process::exit(1);
-                }
+                std::process::exit(2);
             }
 
-            // 4. Verification of memory integrity (Hollowing/Patching detection)
+            // 3. Verification of binary signature (On-disk)
+            // DISABLED for local development builds (no signature appended)
+            // if let Ok(valid) = integrity::verify_self_integrity() {
+            //     if !valid {
+            //         std::process::exit(3);
+            //     }
+            // }
+
+            // 4. Anti-Injection: Check for threads starting at LoadLibrary (DLL Injection)
+            if anti_injection::check_for_injected_threads() {
+               // Detected remote thread injection attempt
+               println!("[SECURITY] Detected remote thread injection!");
+               std::process::exit(4);
+            }
+            
+            // 5. Verification of memory integrity (Hollowing/Patching detection)
             if let Some(baseline) = BASELINE_HASH.get() {
                 if !integrity::verify_memory_integrity(baseline) {
                     // Code segment has been tampered with in RAM
-                    std::process::exit(1);
+                    std::process::exit(5);
                 }
             }
             
-            thread::sleep(Duration::from_millis(1000));
+            thread::sleep(Duration::from_millis(500)); // Increased frequency for injection detection
         }
     });
 }

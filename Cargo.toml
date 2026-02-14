@@ -1,6 +1,6 @@
 [package]
 name = "passx"
-version = "1.0.0"
+version = "0.0.1"
 edition = "2021"
 authors = ["passx"]
 description = "A secure, zero-knowledge password manager with TPM integration and Slint GUI"

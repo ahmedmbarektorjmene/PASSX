@@ -11,6 +11,7 @@ export component TotpCard inherits Rectangle {
     in property <float> progress; // 0.0 to 1.0
     callback clicked;
     callback edit-clicked;
+    callback right-clicked(length, length); // x, y relative to parent
     height: 160px;
     border-radius: 16px;
     background: touch.has-hover ? Theme.surface-hover : Theme.surface-elevated;
@@ -27,6 +28,11 @@ export component TotpCard inherits Rectangle {
         mouse-cursor: pointer;
         clicked => {
             root.clicked();
+        }
+        pointer-event(e) => {
+            if (e.button == PointerEventButton.right && e.kind == PointerEventKind.up) {
+                root.right-clicked(root.x + self.mouse-x, root.y + self.mouse-y);
+            }
         }
     }
 

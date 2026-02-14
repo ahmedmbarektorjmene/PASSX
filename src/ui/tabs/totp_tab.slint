@@ -1,0 +1,134 @@
+import { Theme } from "../theme.slint";
+import { PrimaryButton, Divider } from "../components.slint";
+import { ScrollView, LineEdit } from "std-widgets.slint";
+import { TotpCard } from "../screens/totp_card.slint";
+import { VaultEntryData } from "../types.slint";
+
+export component TotpTab inherits Rectangle {
+    in property <[VaultEntryData]> entries;
+    in property <string> current-search;
+    in property <float> progress;
+    callback search(string);
+    callback open-add-modal();
+    callback copy-code(string);
+    callback edit-totp(string); // id
+    callback request-context-menu(string, int, length, length); // id, index, x, y
+
+    background: Theme.background;
+    VerticalLayout {
+        // Search + Add header
+        Rectangle {
+            height: 72px;
+            VerticalLayout {
+                padding-left: 24px;
+                padding-right: 24px;
+                padding-top: 16px;
+                padding-bottom: 12px;
+                HorizontalLayout {
+                    spacing: 10px;
+
+                    // Native search input
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        height: 40px;
+                        border-radius: Theme.border-radius;
+                        background: Theme.surface;
+                        border-width: 1px;
+                        border-color: totp-search.has-focus ? Theme.primary : Theme.border;
+                        animate border-color { duration: 200ms; }
+                        totp-search := LineEdit {
+                            width: parent.width;
+                            height: parent.height;
+                            placeholder-text: "Search authenticators...";
+                            font-size: 13px;
+                            text: root.current-search;
+                            edited(text) => {
+                                root.search(text);
+                            }
+                        }
+                    }
+
+                    // Add button
+                    PrimaryButton {
+                        text: "+ New";
+                        width: 90px;
+                        height: 40px;
+                        clicked => {
+                            root.open-add-modal();
+                        }
+                    }
+                }
+            }
+        }
+
+        Divider { }
+
+        // TOTP Cards Grid
+        ScrollView {
+            VerticalLayout {
+                padding: 24px;
+                spacing: 16px;
+                alignment: start;
+                for entry[index] in root.entries: Rectangle {
+                    height: 160px;
+                    TotpCard {
+                        width: 100%;
+                        title: entry.title;
+                        subtitle: entry.username;
+                        code: entry.totp_code;
+                        icon-char: entry.icon_text;
+                        icon: entry.icon;
+                        has-icon: entry.has_icon;
+                        progress: root.progress;
+                        clicked => {
+                            root.copy-code(entry.totp_code);
+                        }
+                        edit-clicked => {
+                            root.edit-totp(entry.id);
+                        }
+                        right-clicked(x, y) => {
+                            root.request-context-menu(entry.id, index, x, y);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Empty state
+    if (root.entries.length == 0): VerticalLayout {
+        alignment: center;
+        spacing: 14px;
+        vertical-stretch: 1;
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                border-radius: 32px;
+                background: Theme.surface;
+                Image {
+                    source: @image-url("../../../assets/shield.svg");
+                    width: 28px;
+                    height: 28px;
+                    colorize: Theme.text-disabled;
+                }
+            }
+        }
+
+        Text {
+            text: "No authenticators yet";
+            font-size: 15px;
+            font-weight: 600;
+            color: Theme.text-muted;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            text: "Click \"+ New\" to add a TOTP authenticator";
+            font-size: 12px;
+            color: Theme.text-disabled;
+            horizontal-alignment: center;
+        }
+    }
+}

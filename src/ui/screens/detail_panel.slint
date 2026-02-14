@@ -25,6 +25,7 @@ export component DetailPanel inherits Rectangle {
     in-out property <string> revealed-password;
     in-out property <bool> is-password-revealed;
     in property <float> totp-progress;
+    in property <string> entry_type; // "account" or "totp"
 
     // Action callbacks
     callback edit-entry(string /* id */, string /* title */, string /* username */, string /* url */);
@@ -141,8 +142,8 @@ export component DetailPanel inherits Rectangle {
                 }
             }
 
-            // --- Credentials Card ---
-            Card {
+            // --- Credentials Card (Accounts Only) ---
+            if (root.entry_type == "account"): Card {
                 title: "CREDENTIALS";
                 icon: @image-url("../../../assets/lock.svg");
                 VerticalLayout {
@@ -216,8 +217,8 @@ export component DetailPanel inherits Rectangle {
                 }
             }
 
-            // --- TOTP Card ---
-            if (root.sel-has-totp): Card {
+            // --- TOTP Card (Active) ---
+            if (root.sel-has-totp && !root.sel-deleted): Card {
                 title: "TWO-FACTOR AUTHENTICATION";
                 icon: @image-url("../../../assets/shield.svg");
                 VerticalLayout {
@@ -268,6 +269,31 @@ export component DetailPanel inherits Rectangle {
                         font-size: 10px;
                         color: root.totp-progress < 0.2 ? Theme.danger : Theme.text-muted;
                         animate color { duration: 400ms; }
+                    }
+                }
+            }
+
+            // --- TOTP Secret (Trashed / Inactive) ---
+            if (root.entry_type == "totp" && root.sel-deleted): Card {
+                title: "TOTP SECRET";
+                icon: @image-url("../../../assets/shield.svg");
+                VerticalLayout {
+                    spacing: 6px;
+                    HorizontalLayout {
+                        spacing: 8px;
+                        LineEdit {
+                            text: "••••••••••••••••"; // Masked secret
+                            read-only: true;
+                            horizontal-stretch: 1;
+                            font-size: 13px;
+                            input-type: InputType.password;
+                        }
+                    }
+
+                    Text {
+                        text: "Secret is hidden. Restore to view code.";
+                        font-size: 10px;
+                        color: Theme.text-muted;
                     }
                 }
             }

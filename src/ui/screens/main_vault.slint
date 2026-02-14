@@ -19,20 +19,11 @@ import { DetailPanel } from "./detail_panel.slint";
 import { AccountModal } from "./account_modal.slint";
 import { TotpModal } from "./totp_modal.slint";
 
-export struct VaultEntryData {
-    id: string,
-    title: string,
-    username: string,
-    url: string,
-    icon_text: string,
-    deleted: bool,
-    folder: string,
-    icon: image,
-    has_icon: bool,
-    totp_code: string,
-    has_totp: bool,
-    entry_type: string, // "account" or "totp"
-}
+// Tabs
+import { AccountsTab } from "../tabs/accounts_tab.slint";
+import { TotpTab } from "../tabs/totp_tab.slint";
+import { TrashTab } from "../tabs/trash_tab.slint";
+import { VaultEntryData } from "../types.slint";
 
 export component MainVaultScreen inherits Rectangle {
     in property <[VaultEntryData]> entries;
@@ -107,6 +98,7 @@ export component MainVaultScreen inherits Rectangle {
     property <bool> sel-deleted: false;
     property <bool> sel-has-totp: false;
     property <string> sel-totp-code: "";
+    property <string> sel-entry-type: "account";
 
     // Refresh cached properties whenever entries or selection changes
     changed entries => {
@@ -132,6 +124,7 @@ export component MainVaultScreen inherits Rectangle {
             root.sel-deleted = d.deleted;
             root.sel-has-totp = d.has_totp;
             root.sel-totp-code = d.totp_code;
+            root.sel-entry-type = d.entry_type;
         }
     }
     HorizontalLayout {
@@ -307,310 +300,117 @@ export component MainVaultScreen inherits Rectangle {
         }
 
         // ===================================================================
-        // AUTHENTICATORS VIEW (Proton-style card grid)
+        // TABS AREA
         // ===================================================================
-        if (root.current-filter == "totp"): Rectangle {
-            horizontal-stretch: 1;
-            background: Theme.background;
-            VerticalLayout {
-                // Search + Add header
-                Rectangle {
-                    height: 72px;
-                    VerticalLayout {
-                        padding-left: 24px;
-                        padding-right: 24px;
-                        padding-top: 16px;
-                        padding-bottom: 12px;
-                        HorizontalLayout {
-                            spacing: 10px;
 
-                            // Native search input
-                            Rectangle {
-                                horizontal-stretch: 1;
-                                height: 40px;
-                                border-radius: Theme.border-radius;
-                                background: Theme.surface;
-                                border-width: 1px;
-                                border-color: totp-search.has-focus ? Theme.primary : Theme.border;
-                                animate border-color { duration: 200ms; }
-                                totp-search := LineEdit {
-                                    width: parent.width;
-                                    height: parent.height;
-                                    placeholder-text: "Search authenticators...";
-                                    font-size: 13px;
-                                    edited(text) => {
-                                        root.current-search = text;
-                                        root.perform-search(text, "totp");
-                                    }
-                                }
-                            }
-
-                            // Add button
-                            PrimaryButton {
-                                text: "+ New";
-                                width: 90px;
-                                height: 40px;
-                                clicked => {
-                                    root.totp-edit-id = "";
-                                    root.totp-name = "";
-                                    root.totp-issuer = "";
-                                    root.totp-secret = "";
-                                    root.qr-scan-error = "";
-                                    root.qr-scanned-account = "";
-                                    root.qr-scanned-secret = "";
-                                    root.qr-scanned-issuer = "";
-                                    root.show-totp-modal = true;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Divider { }
-
-                // TOTP Cards Grid
-                ScrollView {
-                    VerticalLayout {
-                        padding: 24px;
-                        spacing: 16px;
-                        alignment: start;
-                        for entry[index] in root.entries: Rectangle {
-                            height: 160px;
-                            TotpCard {
-                                width: 100%;
-                                title: entry.title;
-                                subtitle: entry.username;
-                                code: entry.totp_code;
-                                icon-char: entry.icon_text;
-                                icon: entry.icon;
-                                has-icon: entry.has_icon;
-                                progress: root.totp-progress;
-                                clicked => {
-                                    root.copy-to-clipboard(entry.totp_code);
-                                }
-                                edit-clicked => {
-                                    debug("Editing TOTP ID:", entry.id);
-                                    root.totp-edit-id = entry.id;
-                                    root.totp-name = entry.title;
-                                    root.totp-issuer = entry.username;
-                                    root.totp-secret = "";
-                                    root.qr-scan-error = "";
-                                    root.qr-scanned-account = "";
-                                    root.qr-scanned-secret = "";
-                                    root.qr-scanned-issuer = "";
-                                    root.show-totp-modal = true;
-                                }
-                            }
-                        }
-                    }
-                }
+        // 1. Accounts Tab
+        if (root.current-filter == "accounts"): AccountsTab {
+            horizontal-stretch: 0;
+            width: 300px;
+            entries: root.entries;
+            selected-entry-id: root.selected-entry-id;
+            current-search: root.current-search;
+            search(query) => {
+                root.current-search = query;
+                root.perform-search(query, "accounts");
             }
-
-                // Empty state
-                if (root.entries.length == 0): VerticalLayout {
-                alignment: center;
-                spacing: 14px;
-                vertical-stretch: 1;
-                HorizontalLayout {
-                    alignment: center;
-                    Rectangle {
-                        width: 64px;
-                        height: 64px;
-                        border-radius: 32px;
-                        background: Theme.surface;
-                        Image {
-                            source: @image-url("../../../assets/shield.svg");
-                            width: 28px;
-                            height: 28px;
-                            colorize: Theme.text-disabled;
-                        }
-                    }
-                }
-
-                Text {
-                    text: "No authenticators yet";
-                    font-size: 15px;
-                    font-weight: 600;
-                    color: Theme.text-muted;
-                    horizontal-alignment: center;
-                }
-
-                Text {
-                    text: "Click \"+ New\" to add a TOTP authenticator";
-                    font-size: 12px;
-                    color: Theme.text-disabled;
-                    horizontal-alignment: center;
-                }
+            select-entry(id) => {
+                root.select-entry(id);
+                root.show-context-menu = false;
+            }
+            open-add-modal() => {
+                root.edit-id = "";
+                root.edit-title = "";
+                root.edit-username = "";
+                root.edit-password = "";
+                root.edit-url = "";
+                root.show-modal = true;
+            }
+            request-context-menu(id, idx, x, y) => {
+                root.context-menu-entry-id = id;
+                root.context-menu-entry-index = idx;
+                root.context-menu-x = x + 240px; // Offset by sidebar
+                root.context-menu-y = y;
+                root.show-context-menu = true;
             }
         }
 
-        // ===================================================================
-        // ACCOUNTS / FAVORITES / TRASH VIEW (List + Detail)
-        // ===================================================================
-        if (root.current-filter != "totp"): Rectangle {
+        // 2. Authenticators Tab
+        if (root.current-filter == "totp"): TotpTab {
+            horizontal-stretch: 1;
+            entries: root.entries;
+            current-search: root.current-search;
+            progress: root.totp-progress;
+            search(query) => {
+                root.current-search = query;
+                root.perform-search(query, "totp");
+            }
+            open-add-modal() => {
+                root.totp-edit-id = "";
+                root.totp-name = "";
+                root.totp-issuer = "";
+                root.totp-secret = "";
+                root.qr-scan-error = "";
+                root.qr-scanned-account = "";
+                root.qr-scanned-secret = "";
+                root.qr-scanned-issuer = "";
+                root.show-totp-modal = true;
+            }
+            copy-code(code) => {
+                root.copy-to-clipboard(code);
+            }
+            edit-totp(id) => {
+                // Edit Logic
+                let d = root.get-entry-details(id);
+                if (d.id == id) {
+                    root.totp-edit-id = d.id;
+                    root.totp-name = d.title;
+                    root.totp-issuer = d.username;
+                    root.totp-secret = ""; // We don't load secret back into UI for now? Or should we?
+                                           // User wants "view same menu as new", implies standard fields.
+                    root.qr-scan-error = "";
+                    root.qr-scanned-account = "";
+                    root.qr-scanned-secret = "";
+                    root.qr-scanned-issuer = "";
+                    root.show-totp-modal = true;
+                }
+            }
+            request-context-menu(id, idx, x, y) => {
+                root.context-menu-entry-id = id;
+                root.context-menu-entry-index = idx;
+                root.context-menu-x = x + 240px;
+                root.context-menu-y = y;
+                root.show-context-menu = true;
+            }
+        }
+
+        // 3. Trash Tab
+        if (root.current-filter == "trash"): TrashTab {
             horizontal-stretch: 0;
             width: 300px;
-            background: Theme.background;
-            VerticalLayout {
-                // Search Header
-                Rectangle {
-                    height: 72px;
-                    VerticalLayout {
-                        padding-left: 16px;
-                        padding-right: 16px;
-                        padding-top: 16px;
-                        padding-bottom: 12px;
-                        HorizontalLayout {
-                            spacing: 8px;
-
-                            // Native search input
-                            Rectangle {
-                                horizontal-stretch: 1;
-                                height: 38px;
-                                border-radius: Theme.border-radius;
-                                background: Theme.surface;
-                                border-width: 1px;
-                                border-color: search-input.has-focus ? Theme.primary : Theme.border;
-                                animate border-color { duration: 200ms; }
-                                search-input := LineEdit {
-                                    width: parent.width;
-                                    height: parent.height;
-                                    placeholder-text: "Search vault...";
-                                    font-size: 13px;
-                                    edited(text) => {
-                                        root.current-search = text;
-                                        root.perform-search(text, root.current-filter);
-                                    }
-                                }
-                            }
-
-                            // Smart Add button (only for non-trash)
-                            if (root.current-filter != "trash"): IconButton {
-                                icon: @image-url("../../../assets/plus.svg");
-                                colorize: Theme.primary;
-                                clicked => {
-                                    root.edit-id = "";
-                                    root.edit-title = "";
-                                    root.edit-username = "";
-                                    root.edit-password = "";
-                                    root.edit-url = "";
-                                    root.show-modal = true;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Divider { }
-
-                // Filter label
-                Rectangle {
-                    height: 30px;
-                    HorizontalLayout {
-                        padding-left: 16px;
-                        padding-right: 16px;
-                        Text {
-                            text: root.current-filter == "accounts" ? "ACCOUNTS" : root.current-filter == "trash" ? "TRASH" : "ITEMS";
-                            color: Theme.text-disabled;
-                            font-size: 9px;
-                            font-weight: 800;
-                            letter-spacing: 1.5px;
-                            vertical-alignment: center;
-                        }
-
-                        Rectangle {
-                            horizontal-stretch: 1;
-                        }
-
-                        Text {
-                            text: root.entries.length;
-                            color: Theme.text-disabled;
-                            font-size: 10px;
-                            font-weight: 700;
-                            vertical-alignment: center;
-                        }
-                    }
-                }
-
-                // List Area
-                ScrollView {
-                    VerticalLayout {
-                        padding-top: 4px;
-                        padding-bottom: 20px;
-                        alignment: start;
-                        for entry[index] in root.entries: VaultEntryItem {
-                            title: entry.title;
-                            subtext: entry.username;
-                            // Show initial if explicit icon missing, OR show default type icon?
-                            // User asked for visual distinction. 
-                            // Let's use the icon-char if available for specific sites, but maybe add a secondary badge?
-                            // Or default to type icon if no specific icon.
-                            icon-char: entry.icon_text;
-                            // Use type-specific default icon if no custom icon is present
-                            icon: entry.has-icon ? entry.icon : (entry.entry_type == "totp" ? @image-url("../../../assets/shield.svg") : @image-url("../../../assets/lock.svg"));
-                            // Always show icon content (either custom or default)
-                            has-icon: true;
-                            selected: root.selected-entry-id == entry.id;
-                            clicked => {
-                                root.select-entry(entry.id);
-                                root.show-context-menu = false;
-                            }
-                            right-clicked(x, y) => {
-                                root.context-menu-entry-id = entry.id;
-                                root.context-menu-entry-index = index;
-                                root.context-menu-x = x + 240px;
-                                root.context-menu-y = y;
-                                root.show-context-menu = true;
-                            }
-                        }
-                    }
-                }
+            entries: root.entries;
+            selected-entry-id: root.selected-entry-id;
+            current-search: root.current-search;
+            search(query) => {
+                root.current-search = query;
+                root.perform-search(query, "trash");
             }
-
-
-                // Empty state for entry list
-                if (root.entries.length == 0): VerticalLayout {
-                alignment: center;
-                spacing: 12px;
-                vertical-stretch: 1;
-                HorizontalLayout {
-                    alignment: center;
-                    Rectangle {
-                        width: 56px;
-                        height: 56px;
-                        border-radius: 28px;
-                        background: Theme.surface;
-                        Image {
-                            source: root.current-filter == "trash" ? @image-url("../../../assets/trash.svg") : @image-url("../../../assets/lock.svg");
-                            width: 24px;
-                            height: 24px;
-                            colorize: Theme.text-disabled;
-                        }
-                    }
-                }
-
-                Text {
-                    text: root.current-filter == "trash" ? "Trash is empty" : "No accounts yet";
-                    font-size: 13px;
-                    color: Theme.text-muted;
-                    horizontal-alignment: center;
-                }
-
-                Text {
-                    text: root.current-filter == "trash" ? "Deleted items will appear here" : "Click + to add your first account";
-                    font-size: 11px;
-                    color: Theme.text-disabled;
-                    horizontal-alignment: center;
-                }
+            select-entry(id) => {
+                root.select-entry(id);
+                root.show-context-menu = false;
             }
-            Rectangle {
-                x: parent.width - 1px;
-                width: 1px;
-                background: Theme.border-subtle;
+            request-context-menu(id, idx, x, y) => {
+                root.context-menu-entry-id = id;
+                root.context-menu-entry-index = idx;
+                root.context-menu-x = x + 240px;
+                root.context-menu-y = y;
+                root.show-context-menu = true;
             }
-        } // End Accounts View
+        }
 
         // --- Detail Area (Accounts/Favorites/Trash only) ---
+        // Note: TOTP view (current-filter == "totp") does NOT have a detail panel in this design (it uses cards).
+        // But Trash view DOES have a detail panel, so we need to support logic for both Account and TOTP in Trash.
         if (root.current-filter != "totp"): DetailPanel {
             has-selection: root.has-selection;
             selected-entry-id: root.selected-entry-id;
@@ -624,6 +424,8 @@ export component MainVaultScreen inherits Rectangle {
             sel-deleted: root.sel-deleted;
             sel-has-totp: root.sel-has-totp;
             sel-totp-code: root.sel-totp-code;
+            entry_type: root.sel-entry-type; // Passed to detail panel for conditional rendering
+            
             // Password reveal state
             revealed-password <=> root.revealed-password;
             is-password-revealed <=> root.is-password-revealed;
@@ -669,6 +471,7 @@ export component MainVaultScreen inherits Rectangle {
             }
         }
     } // End HorizontalLayout
+
 
 
     // --- Context Menu Overlay ---
@@ -718,12 +521,24 @@ export component MainVaultScreen inherits Rectangle {
                         // Use callback instead of loop
                         let d = root.get-entry-details(root.context-menu-entry-id);
                         if (d.id == root.context-menu-entry-id) {
-                            root.edit-id = d.id;
-                            root.edit-title = d.title;
-                            root.edit-username = d.username;
-                            root.edit-password = "";
-                            root.edit-url = d.url;
-                            root.show-modal = true;
+                            if (d.entry_type == "totp") {
+                                root.totp-edit-id = d.id;
+                                root.totp-name = d.title;
+                                root.totp-issuer = d.username;
+                                root.totp-secret = "";
+                                root.qr-scan-error = "";
+                                root.qr-scanned-account = "";
+                                root.qr-scanned-secret = "";
+                                root.qr-scanned-issuer = "";
+                                root.show-totp-modal = true;
+                            } else {
+                                root.edit-id = d.id;
+                                root.edit-title = d.title;
+                                root.edit-username = d.username;
+                                root.edit-password = "";
+                                root.edit-url = d.url;
+                                root.show-modal = true;
+                            }
                         }
                         root.show-context-menu = false;
                     }

@@ -14,9 +14,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let binary_path = &args[1];
     
-    // In a real scenario, you'd load your private key from a secure location.
-    // For this demonstration, we'll generate one and PRINT the public key 
-    // so you can update integrity.rs.
     let mut csprng = OsRng;
     let signing_key: SigningKey = SigningKey::generate(&mut csprng);
     let public_key = signing_key.verifying_key();

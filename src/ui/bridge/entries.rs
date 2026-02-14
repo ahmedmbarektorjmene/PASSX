@@ -1,7 +1,7 @@
 use slint::Weak;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use arboard::Clipboard;
+use crate::io::clipboard::copy_to_clipboard;
 
 use crate::ui::{MainWindow, VaultEntryData};
 use crate::ui::bridge::state::AppState;
@@ -53,23 +53,10 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
                 println!("[DEBUG] BG Thread: Invoking UI thread for clipboard...");
                 let _ = slint::invoke_from_event_loop(move || {
                      println!("[DEBUG] UI Thread: Accessing clipboard...");
-                     match Clipboard::new() {
-                        Ok(mut clipboard) => {
-                            let _ = clipboard.set_text(pass);
-                            println!("[DEBUG] UI Thread: Password copied to clipboard");
-                            
-                            // Clear clipboard after 30s
-                            thread::spawn(move || {
-                                thread::sleep(std::time::Duration::from_secs(30));
-                                let _ = slint::invoke_from_event_loop(move || {
-                                     if let Ok(mut cb) = Clipboard::new() {
-                                         let _ = cb.set_text(""); 
-                                         println!("[DEBUG] UI Thread: Clipboard cleared (timeout)");
-                                     }
-                                });
-                            });
-                        },
-                        Err(e) => eprintln!("[ERROR] Clipboard error: {}", e),
+                     if let Err(e) = copy_to_clipboard(&pass, 10) {
+                         eprintln!("[ERROR] Clipboard error: {}", e);
+                     } else {
+                         println!("[DEBUG] UI Thread: Password copied to clipboard (10s secure timeout)");
                      }
                 });
             }
@@ -97,16 +84,50 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
             };
 
             if let Some(text) = text_to_copy {
-                 match Clipboard::new() {
-                    Ok(mut clipboard) => {
-                        let _ = clipboard.set_text(text);
-                        println!("[DEBUG] UI Thread: Username/Account copied");
-                    },
-                    Err(e) => eprintln!("[ERROR] Clipboard error: {}", e),
+                 if let Err(e) = copy_to_clipboard(&text, 10) {
+                     eprintln!("[ERROR] Clipboard error: {}", e);
+                 } else {
+                     println!("[DEBUG] UI Thread: Username/Account copied (10s secure timeout)");
                  }
             }
         } else {
             println!("[DEBUG] UI Thread: Vault not available");
+        }
+    });
+
+    // 6c. Get Entry Details
+    let app_ref = app_weak.clone();
+    let state_copy = state.clone();
+    app.on_get_entry_details(move |id| {
+        let _app = app_ref.upgrade().unwrap();
+        let state = state_copy.lock().unwrap();
+        
+        if let Some(vault) = &state.vault {
+            // 1. Try Account
+            if let Some(acc) = vault.accounts.iter().find(|e| e.id == id.as_str()) {
+                let linked_totp = vault.totps.iter().find(|t| !t.deleted && t.linked_account_id.as_deref() == Some(&acc.id));
+                return account_to_data(acc, linked_totp);
+            }
+            // 2. Try TOTP
+            if let Some(totp) = vault.totps.iter().find(|e| e.id == id.as_str()) {
+                return totp_to_data(totp);
+            }
+        }
+        
+        // Return empty/default
+        VaultEntryData {
+             id: "".into(),
+             title: "".into(),
+             username: "".into(),
+             url: "".into(),
+             icon_text: "".into(),
+             deleted: false,
+             folder: "".into(),
+             icon: slint::Image::default(),
+             has_icon: false,
+             totp_code: "".into(),
+             has_totp: false,
+             entry_type: "account".into(),
         }
     });
 
@@ -551,8 +572,10 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
 
     // 17. Copy to Clipboard
     app.on_copy_to_clipboard(move |text| {
-        let mut clipboard = Clipboard::new().unwrap();
-        let _ = clipboard.set_text(text.to_string());
+        // Secure copy for TOTP, Generator, URLs etc.
+        if let Err(e) = copy_to_clipboard(text.as_str(), 10) {
+            eprintln!("[ERROR] Clipboard error: {}", e);
+        }
     });
 
     // 18. Get Entry Details (Sync)

@@ -1,0 +1,14 @@
+export struct VaultEntryData {
+    id: string,
+    title: string,
+    username: string,
+    url: string,
+    icon_text: string,
+    deleted: bool,
+    folder: string,
+    icon: image,
+    has_icon: bool,
+    totp_code: string,
+    has_totp: bool,
+    entry_type: string, // "account" or "totp"
+}

@@ -8,6 +8,9 @@ fn main() {
     // 0. Anti-Debug Check
     #[cfg(windows)]
     unsafe {
+        // 0. Antivirus Check (Must run before ChildProcess policy blocks PowerShell)
+        passx::security::antivirus::check_antivirus_availability();
+
         // HARDENING
         // 1. Enable Process Mitigation Policies (Refined: ImageLoad, ChildProcess, HandleCheck)
         passx::security::enable_process_mitigation_policies();
@@ -17,7 +20,6 @@ fn main() {
             eprintln!("Another instance of PASSX is already running.");
             std::process::exit(1);
         }
-        
         
         // 3. Restrict Process Access (DACL)
         passx::security::restrict_process_access();

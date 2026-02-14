@@ -1,0 +1,163 @@
+import { Theme } from "../theme.slint";
+import {
+    VaultEntryItem,
+    IconButton,
+    Divider,
+    ContextMenuItem,
+    ConfirmDialog,
+} from "../components.slint";
+import { ScrollView, LineEdit } from "std-widgets.slint";
+import { VaultEntryData } from "../types.slint";
+
+export component AccountsTab inherits Rectangle {
+    in property <[VaultEntryData]> entries;
+    in property <string> selected-entry-id;
+    in property <string> current-search;
+    callback search(string);
+    callback select-entry(string);
+    callback open-add-modal();
+    
+    // Context Menu
+    callback request-context-menu(string, int, length, length); // id, index, x, y
+
+    VerticalLayout {
+        // Search Header
+        Rectangle {
+            height: 72px;
+            VerticalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                padding-top: 16px;
+                padding-bottom: 12px;
+                HorizontalLayout {
+                    spacing: 8px;
+
+                    // Native search input
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        height: 38px;
+                        border-radius: Theme.border-radius;
+                        background: Theme.surface;
+                        border-width: 1px;
+                        border-color: search-input.has-focus ? Theme.primary : Theme.border;
+                        animate border-color { duration: 200ms; }
+                        search-input := LineEdit {
+                            width: parent.width;
+                            height: parent.height;
+                            placeholder-text: "Search vault...";
+                            font-size: 13px;
+                            text: root.current-search;
+                            edited(text) => {
+                                root.search(text);
+                            }
+                        }
+                    }
+
+                    // Smart Add button
+                    IconButton {
+                        icon: @image-url("../../../assets/plus.svg");
+                        colorize: Theme.primary;
+                        clicked => {
+                            root.open-add-modal();
+                        }
+                    }
+                }
+            }
+        }
+
+        Divider { }
+
+        // Filter label
+        Rectangle {
+            height: 30px;
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                Text {
+                    text: "ACCOUNTS";
+                    color: Theme.text-disabled;
+                    font-size: 9px;
+                    font-weight: 800;
+                    letter-spacing: 1.5px;
+                    vertical-alignment: center;
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+
+                Text {
+                    text: root.entries.length;
+                    color: Theme.text-disabled;
+                    font-size: 10px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // List Area
+        ScrollView {
+            VerticalLayout {
+                padding-top: 4px;
+                padding-bottom: 20px;
+                alignment: start;
+                for entry[index] in root.entries: VaultEntryItem {
+                    title: entry.title;
+                    subtext: entry.username;
+                    icon-char: entry.icon_text;
+                    icon: entry.has-icon ? entry.icon : @image-url("../../../assets/lock.svg");
+                    has-icon: true;
+                    selected: root.selected-entry-id == entry.id;
+                    clicked => {
+                        root.select-entry(entry.id);
+                    }
+                    right-clicked(x, y) => {
+                        root.request-context-menu(entry.id, index, x, y);
+                    }
+                }
+            }
+        }
+    }
+
+    // Empty state
+    if (root.entries.length == 0): VerticalLayout {
+        alignment: center;
+        spacing: 12px;
+        vertical-stretch: 1;
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 56px;
+                height: 56px;
+                border-radius: 28px;
+                background: Theme.surface;
+                Image {
+                    source: @image-url("../../../assets/lock.svg");
+                    width: 24px;
+                    height: 24px;
+                    colorize: Theme.text-disabled;
+                }
+            }
+        }
+
+        Text {
+            text: "No accounts yet";
+            font-size: 13px;
+            color: Theme.text-muted;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            text: "Click + to add your first account";
+            font-size: 11px;
+            color: Theme.text-disabled;
+            horizontal-alignment: center;
+        }
+    }
+    Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+        background: Theme.border-subtle;
+    }
+}
