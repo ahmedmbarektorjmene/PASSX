@@ -82,13 +82,12 @@
             Schedule='afterInstallInitialize'
             DowngradeErrorMessage='A newer version of [ProductName] is already installed. Setup will now exit.'/>
 
-        <Media Id='1' Cabinet='media1.cab' EmbedCab='yes' DiskPrompt='CD-ROM #1'/>
+    <Media Id='1' Cabinet='media1.cab' EmbedCab='yes' DiskPrompt='CD-ROM #1'/>
         <Property Id='DiskPrompt' Value='passx Installation'/>
 
         <Directory Id='TARGETDIR' Name='SourceDir'>
             <Directory Id='$(var.PlatformProgramFilesFolder)' Name='PFiles'>
                 <Directory Id='APPLICATIONFOLDER' Name='passx'>
-                    
                     <!--
                       Enabling the license sidecar file in the installer is a four step process:
 
@@ -103,34 +102,35 @@
                       4. Uncomment the `ComponentRef` tag with the Id attribute value of "License"
                          further down in this file.
                     -->
-                    <!--
                     <Component Id='License' Guid='*'>
-                        <File Id='LicenseFile' Name='ChangeMe' DiskId='1' Source='C:\Path\To\File' KeyPath='yes'/>
+                        <File Id='LicenseFile' Name='LICENSE' DiskId='1' Source='LICENSE' KeyPath='yes'/>
                     </Component>
-                    -->
 
-                    <Directory Id='Bin' Name='bin'>
-                        <Component Id='Path' Guid='BB87F478-EF4A-4F9C-A10C-5663D71C011F' KeyPath='yes'>
-                            <Environment
-                                Id='PATH'
-                                Name='PATH'
-                                Value='[Bin]'
-                                Permanent='no'
-                                Part='last'
-                                Action='set'
-                                System='yes'/>
-                        </Component>
-                        <Component Id='binary0' Guid='*'>
-                            <File
-                                Id='exe0'
-                                Name='passx.exe'
-                                DiskId='1'
-                                Source='$(var.CargoTargetBinDir)\passx.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                    </Directory>
+                    <Component Id='Path' Guid='BB87F478-EF4A-4F9C-A10C-5663D71C011F' KeyPath='yes'>
+                        <Environment
+                            Id='PATH'
+                            Name='PATH'
+                            Value='[APPLICATIONFOLDER]'
+                            Permanent='no'
+                            Part='last'
+                            Action='set'
+                            System='yes'/>
+                    </Component>
+                    <Component Id='binary0' Guid='*'>
+                        <File
+                            Id='exe0'
+                            Name='passx.exe'
+                            DiskId='1'
+                            Source='$(var.CargoTargetBinDir)\passx.exe'
+                            KeyPath='yes'>
+                            <Shortcut Id="DesktopShortcut" Directory="DesktopFolder" Name="PassX" WorkingDirectory="APPLICATIONFOLDER" Icon="ProductICO" Advertise="yes"/>
+                            <Shortcut Id="ProgramMenuShortcut" Directory="ProgramMenuFolder" Name="PassX" WorkingDirectory="APPLICATIONFOLDER" Icon="ProductICO" Advertise="yes"/>
+                        </File>
+                    </Component>
                 </Directory>
             </Directory>
+            <Directory Id="DesktopFolder" Name="Desktop"/>
+            <Directory Id="ProgramMenuFolder" Name="Programs"/>
         </Directory>
 
         <Feature
@@ -147,7 +147,7 @@
               Uncomment the following `ComponentRef` tag to add the license
               sidecar file to the installer.
             -->
-            <!--<ComponentRef Id='License'/>-->
+            <ComponentRef Id='License'/>
 
             <ComponentRef Id='binary0'/>
 
@@ -198,8 +198,8 @@
                    the path to a RTF file that will be used as the EULA and
                    displayed in the license agreement dialog.
             -->
-            <Publish Dialog='WelcomeDlg' Control='Next' Event='NewDialog' Value='CustomizeDlg' Order='99'>1</Publish>
-            <Publish Dialog='CustomizeDlg' Control='Back' Event='NewDialog' Value='WelcomeDlg' Order='99'>1</Publish>
+            <!-- <Publish Dialog='WelcomeDlg' Control='Next' Event='NewDialog' Value='CustomizeDlg' Order='99'>1</Publish> -->
+            <!-- <Publish Dialog='CustomizeDlg' Control='Back' Event='NewDialog' Value='WelcomeDlg' Order='99'>1</Publish> -->
 
         </UI>
 
@@ -209,7 +209,7 @@
           the following `WixUILicenseRTF` tag and changing the `Value`
           attribute.
         -->
-        <!-- <WixVariable Id='WixUILicenseRtf' Value='Relative\Path\to\Eula.rtf'/> -->
+        <WixVariable Id='WixUILicenseRtf' Value='wix\License.rtf'/>
 
         
         <!--
