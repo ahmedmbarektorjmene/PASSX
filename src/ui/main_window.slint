@@ -52,7 +52,7 @@ component MainWindow inherits Window {
     callback unlink-totp(string); // account_id
     callback delete-entry(string);
     callback restore-entry(string);
-    callback save-entry(string, string, string, string, string); // id, title, username, password, url (no folder)
+    callback save-entry(string, string, string, string, string, string); // id, title, username, password, url, notes
     callback perform-search(string, string);
     callback select-entry(string);
     callback reveal-password(string);
@@ -133,8 +133,8 @@ component MainWindow inherits Window {
         lock-vault => {
             root.lock-vault();
         }
-        save-entry(id, title, user, pass, url) => {
-            root.save-entry(id, title, user, pass, url);
+        save-entry(id, title, user, pass, url, notes) => {
+            root.save-entry(id, title, user, pass, url, notes);
         }
         perform-search(q, f) => {
             root.perform-search(q, f);

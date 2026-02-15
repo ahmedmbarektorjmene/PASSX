@@ -128,13 +128,14 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
              totp_code: "".into(),
              has_totp: false,
              entry_type: "account".into(),
+             notes: "".into(),
         }
     });
 
     // 7. Save Entry (Account)
     let app_ref = app_weak.clone();
     let state_clone = state.clone();
-    app.on_save_entry(move |id, title, username, password, url| {
+    app.on_save_entry(move |id, title, username, password, url, notes| {
         let _app = app_ref.upgrade().unwrap();
         let app_weak = app_ref.clone();
         let state_thread = state_clone.clone();
@@ -149,12 +150,15 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
                     
                     if id_str.is_empty() {
                         // Create Account
-                        if let Some(entry) = AccountEntry::new(
+                        if let Some(mut entry) = AccountEntry::new(
                             title.into(), 
                             username.into(), 
                             password.as_bytes(), 
                             if url.len() > 0 { Some(url.clone().into()) } else { None }
                         ) {
+                             if !notes.is_empty() {
+                                 entry.notes = SecureBuffer::from_slice(notes.as_str().as_bytes()).unwrap_or(SecureBuffer::new(0).unwrap());
+                             }
                             vault.accounts.push(entry);
                         }
                     } else {
@@ -163,6 +167,9 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
                             entry.title = title.into();
                             entry.username = username.into();
                             entry.url = url.clone().into();
+                            // Update notes
+                            entry.notes = SecureBuffer::from_slice(notes.as_str().as_bytes()).unwrap_or(SecureBuffer::new(0).unwrap());
+                            
                             entry.updated_at = chrono::Utc::now().timestamp();
                             if !password.is_empty() {
                                 entry.update_password(password.as_bytes()); 

@@ -19,6 +19,7 @@ pub struct VaultEntryModel {
     pub has_totp: bool,
     pub entry_type: String, // "account" or "totp"
     pub linked_id: String,  // If valid, points to linked entity
+    pub notes: String,
 }
 
 // Generate the model data in a background thread
@@ -62,6 +63,7 @@ pub fn generate_vault_entries(vault: &Vault, search: &str, filter: &str) -> Vec<
                 has_totp: linked_totp.is_some(),
                 entry_type: "account".to_string(),
                 linked_id: linked_totp.map(|t| t.id.clone()).unwrap_or_default(),
+                notes: String::from_utf8_lossy(&acc.notes).to_string(),
             });
         }
     }
@@ -94,6 +96,7 @@ pub fn generate_vault_entries(vault: &Vault, search: &str, filter: &str) -> Vec<
                 has_totp: true,
                 entry_type: "totp".to_string(),
                 linked_id: t.linked_account_id.clone().unwrap_or_default(),
+                notes: String::new(),
             });
         }
     }
@@ -131,6 +134,7 @@ pub fn account_to_data(e: &crate::vault::entry::AccountEntry, linked_totp: Optio
         totp_code: totp_code.into(),
         has_totp: linked_totp.is_some(),
         entry_type: "account".into(),
+        notes: String::from_utf8_lossy(&e.notes).to_string().into(),
     }
 }
 
@@ -160,6 +164,7 @@ pub fn totp_to_data(t: &crate::vault::entry::TotpEntry) -> VaultEntryData {
         totp_code: code.into(),
         has_totp: true,
         entry_type: "totp".into(),
+        notes: "".into(),
     }
 }
 
@@ -186,6 +191,7 @@ pub fn apply_vault_model(app: &MainWindow, entries: Vec<VaultEntryModel>) {
             totp_code: e.totp_code.into(),
             has_totp: e.has_totp,
             entry_type: e.entry_type.into(),
+            notes: e.notes.into(),
         }
     }).collect();
 

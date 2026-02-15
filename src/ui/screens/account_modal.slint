@@ -6,7 +6,7 @@ import {
     Divider,
     Label,
 } from "../components.slint";
-import { ScrollView, LineEdit } from "std-widgets.slint";
+import { ScrollView, LineEdit, TextEdit } from "std-widgets.slint";
 
 export component AccountModal inherits Rectangle {
     in-out property <string> edit-id: "";
@@ -14,7 +14,8 @@ export component AccountModal inherits Rectangle {
     in-out property <string> edit-username: "";
     in-out property <string> edit-password: "";
     in-out property <string> edit-url: "";
-    callback save(string, string, string, string, string); // id, title, username, password, url
+    in-out property <string> edit-notes: "";
+    callback save(string, string, string, string, string, string); // id, title, username, password, url, notes
     callback close;
     background: rgba(0, 0, 0, 0.6);
     TouchArea {
@@ -131,6 +132,22 @@ export component AccountModal inherits Rectangle {
                             font-size: 13px;
                         }
                     }
+
+                    // Notes
+                    VerticalLayout {
+                        spacing: 6px;
+                        Label {
+                            text: "NOTES";
+                        }
+
+                        TextEdit {
+                            text <=> root.edit-notes;
+                            font-size: 13px;
+                            height: 80px; 
+                            // TextEdit in Slint 1.9 might not support placeholder-text directly or it might be different.
+                            // But basic TextEdit is fine.
+                        }
+                    }
                 }
             }
 
@@ -150,7 +167,7 @@ export component AccountModal inherits Rectangle {
                     width: 140px;
                     enabled: root.edit-title != "";
                     clicked => {
-                        root.save(root.edit-id, root.edit-title, root.edit-username, root.edit-password, root.edit-url);
+                        root.save(root.edit-id, root.edit-title, root.edit-username, root.edit-password, root.edit-url, root.edit-notes);
                         root.close();
                     }
                 }

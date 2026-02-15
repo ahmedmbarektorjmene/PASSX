@@ -21,6 +21,7 @@ export component DetailPanel inherits Rectangle {
     in property <bool> sel-deleted;
     in property <bool> sel-has-totp;
     in property <string> sel-totp-code;
+    in property <string> sel-notes;
     // Password reveal
     in-out property <string> revealed-password;
     in-out property <bool> is-password-revealed;
@@ -410,6 +411,21 @@ export component DetailPanel inherits Rectangle {
                         clicked => {
                             root.copy-to-clipboard(root.sel-url);
                         }
+                    }
+                }
+            }
+
+            // --- Notes Card ---
+            if (root.sel-notes != ""): Card {
+                title: "NOTES";
+                icon: @image-url("../../../assets/file-text.svg"); // Assuming icon exists or fallback
+                VerticalLayout {
+                    spacing: 8px;
+                    Text {
+                        text: root.sel-notes;
+                        color: Theme.text-secondary;
+                        font-size: 13px;
+                        wrap: word-wrap;
                     }
                 }
             }

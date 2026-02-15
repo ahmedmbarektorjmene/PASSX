@@ -41,7 +41,7 @@ export component MainVaultScreen inherits Rectangle {
     // Actions
     callback select-entry(string);
     callback lock-vault();
-    callback save-entry(string, string, string, string, string); // id, title, username, password, url
+    callback save-entry(string, string, string, string, string, string); // id, title, username, password, url, notes
 
     callback save-totp(string, string, string, string, string); // id, name, secret, issuer, linked_account_id
     callback link-totp(string, string); // totp_id, account_id
@@ -78,6 +78,7 @@ export component MainVaultScreen inherits Rectangle {
     property <string> edit-username: "";
     property <string> edit-password: "";
     property <string> edit-url: "";
+    property <string> edit-notes: "";
     // TOTP modal fields
     property <string> totp-edit-id: "";
     property <string> totp-name: "";
@@ -109,6 +110,7 @@ export component MainVaultScreen inherits Rectangle {
     property <bool> sel-has-totp: false;
     property <string> sel-totp-code: "";
     property <string> sel-entry-type: "account";
+    property <string> sel-notes: "";
 
     // Refresh cached properties whenever entries or selection changes
     changed entries => {
@@ -135,6 +137,7 @@ export component MainVaultScreen inherits Rectangle {
             root.sel-has-totp = d.has_totp;
             root.sel-totp-code = d.totp_code;
             root.sel-entry-type = d.entry_type;
+            root.sel-notes = d.notes;
         }
     }
     HorizontalLayout {
@@ -334,6 +337,7 @@ export component MainVaultScreen inherits Rectangle {
                 root.edit-username = "";
                 root.edit-password = "";
                 root.edit-url = "";
+                root.edit-notes = "";
                 root.show-modal = true;
             }
             request-context-menu(id, idx, x, y) => {
@@ -435,6 +439,7 @@ export component MainVaultScreen inherits Rectangle {
             sel-has-totp: root.sel-has-totp;
             sel-totp-code: root.sel-totp-code;
             entry_type: root.sel-entry-type; // Passed to detail panel for conditional rendering
+            sel-notes: root.sel-notes;
             
             // Password reveal state
             revealed-password <=> root.revealed-password;
@@ -449,6 +454,7 @@ export component MainVaultScreen inherits Rectangle {
                 root.edit-username = user;
                 root.edit-password = "";
                 root.edit-url = url;
+                root.edit-notes = root.sel-notes;
                 root.show-modal = true;
             }
             restore-entry(id) => {
@@ -572,6 +578,7 @@ export component MainVaultScreen inherits Rectangle {
                                 root.edit-username = d.username;
                                 root.edit-password = "";
                                 root.edit-url = d.url;
+                                root.edit-notes = d.notes;
                                 root.show-modal = true;
                             }
                         }
@@ -637,8 +644,9 @@ export component MainVaultScreen inherits Rectangle {
         edit-username <=> root.edit-username;
         edit-password <=> root.edit-password;
         edit-url <=> root.edit-url;
-        save(id, title, user, pass, url) => {
-            root.save-entry(id, title, user, pass, url);
+        edit-notes <=> root.edit-notes;
+        save(id, title, user, pass, url, notes) => {
+            root.save-entry(id, title, user, pass, url, notes);
         }
         close => {
             root.show-modal = false;
