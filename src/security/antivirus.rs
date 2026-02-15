@@ -14,6 +14,7 @@ struct MpInformation {
 
 #[derive(Debug, Deserialize)]
 struct GenericAvProduct {
+    #[allow(dead_code)]
     #[serde(rename = "displayName")]
     display_name: String,
     #[serde(rename = "productState")]

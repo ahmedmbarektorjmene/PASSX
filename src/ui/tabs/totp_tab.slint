@@ -81,7 +81,7 @@ export component TotpTab inherits Rectangle {
                         has-icon: entry.has_icon;
                         progress: root.progress;
                         clicked => {
-                            root.copy-code(entry.totp_code);
+                            root.copy-code(entry.id);
                         }
                         edit-clicked => {
                             root.edit-totp(entry.id);

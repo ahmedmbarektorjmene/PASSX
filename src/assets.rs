@@ -1,5 +1,5 @@
 
-pub const LOGO_JPG: &[u8] = include_bytes!("../assets/logo.jpg");
+pub const LOGO_JPG: &[u8] = include_bytes!("../assets/logo.png");
 
 // Icons
 pub const COPY_SVG: &[u8] = include_bytes!("../assets/copy.svg");

@@ -1,26 +1,38 @@
 you are a nigger dont do these without my permission:
 
-* you can select an OTP from existing ones for an account from the detail_panel of an account entry or create a new OTP for an account from the detail_panel of an account entry. and you can copy it directly from the detail_panel (only linked accounts) and authenticators tab but it will be zeroed after 10 seconds of the copy.
+* we can create a random password directly from the create menu by clicking the random (dice) icon on the right side of the password field without the need to type it or without the need to copy it from the password generator. and by default it will be generated from the password generator's last used settings. so we need to save the password generator's last used settings in the vault.
 
-* we can create a random password directly from the create menu without the need to type it or copy it from the generator. and by default it will be generated from the generator last settings used.
+* you should modify any field in the OTP or Account by clicking on the edit button and accepting the windows security prompt with typing the user password. so when you click on the modify button it should request the windows security prompt with typing the user password to access the edit modal.
 
-* should not show OTPs directly they should appear as ****** and copying is available but showing it in the ui is not allowed. and to copy it successfully you need to type the user password in the windows security prompt.
+* you can show the password (and you cannot change it) by clicking on the eye icon to make it flips to show the password eye icon in the detail_panel and it will disappear (zeroed) from the ram and the vram after 10 seconds.
 
-* notes are not showing in the detail_panel. so we need to show them.
-
-* you should modify any field in the OTP or Account by clicking on the edit button and accepting the windows security prompt with typing the user password.
-* you can show the password (and you cannot change it) by clicking on the eye icon to make it flips to show the password in the detail_panel and it will disappear (zeroed) from the ram and the vram after 10 seconds.
-
-* the window should not show or leak when recording or streaming the screen so it should be invisible.
+* add feature to change master password in settings.
 
 * master password should be also necessary (required) for device-bound encrypted wallets (TPM). master password can not be disabled.
+
+* the window should not show or leak any information when recording or streaming the screen so it should be invisible.
+
+* add checks if the master password is strong enough. and only allow it to be changed or created (vault creation) if it is strong enough.
+
+* the vault can't be deleted or updated or copied by any user without administrator rights and only the passx program can delete or update it or create it. and all of that without making the program run in adminitrator mode. all of that in user mode.
+
+* add an option in settings to mirror the vault in other locations (C drive, D drive, E drive, etc...) so that the user can access the vault from other storage devices if the main one corrupts in the future.
+
+* save the app state (screen size, last opened vault) so that the user sees the last opened vault when he opens the program (needs unlocking) and the same screen size.
+
+* make the shrinking of the window more smooth and user friendly.
+
+* fix UI problems.
+
+* replace the program icon with another icon.
+
+------ later after release
+
+* add a feature to show comprimized passwords. when you set them or change them or click on the check icon next to the password field it should show a warning message to the user to change it.
 
 * you can add Hardware Keys (Yubikey, Nitrokey, etc...) to the vault in the settings. (master password still needed).
 * and you can remove a hardware key access by clicking on the remove button next to the hardware key in the settings.
 
-* the vault can't be deleted or updated or copied by any user without administrator rights and only the passx program can delete or update it or create it. and all of that without making the program run in adminitrator mode. all of that in user mode.
-
-* add an option in settings to sync the vault in other locations (C drive, D drive, E drive, etc...) so that the user can access the vault from other storage devices if the main one corrupts in the future.
 * add an option in settings (portable mode only) to sync the vault to other registered devices very securely (end-to-end encrypted lan only). firstly you need to register a local device to the vault then you can sync between them any time you want without the need to retype or rescan the connection (QR code or the text code). and the sync happens if the two devices connected on the same network. so no server will be used.
 * add a button for sync in the main vault. so no need to enter settings to be able to sync.
 * automatic sync is available whenever the two devices are connected on the same network. and the sync happens automatically.

@@ -37,6 +37,14 @@ export component DetailPanel inherits Rectangle {
     callback reveal-password(string);
     callback copy-to-clipboard(string);
     callback confirm-delete(string);
+    callback unlink-totp(string); // id
+    callback copy-totp-code(string); // id
+
+    // ... (existing callbacks)
+
+
+    callback open-link-totp-modal();
+    callback open-add-totp-modal();
     horizontal-stretch: 1;
     background: Theme.background-alt;
 
@@ -239,11 +247,21 @@ export component DetailPanel inherits Rectangle {
                             horizontal-stretch: 1;
                         }
 
+                        // Copy Button
                         IconButton {
                             icon: @image-url("../../../assets/copy.svg");
                             colorize: Theme.text-secondary;
                             clicked => {
-                                root.copy-to-clipboard(root.sel-totp-code);
+                                root.copy-totp-code(root.selected-entry-id);
+                            }
+                        }
+                        
+                        // Unlink Button
+                        IconButton {
+                            icon: @image-url("../../../assets/link-off.svg");
+                            colorize: Theme.danger;
+                            clicked => {
+                                root.unlink-totp(root.selected-entry-id);
                             }
                         }
                     }
@@ -269,6 +287,80 @@ export component DetailPanel inherits Rectangle {
                         font-size: 10px;
                         color: root.totp-progress < 0.2 ? Theme.danger : Theme.text-muted;
                         animate color { duration: 400ms; }
+                    }
+                }
+            }
+
+
+            // --- TOTP Setup (No Active TOTP) ---
+            if (!root.sel-has-totp && !root.sel-deleted && root.entry_type == "account"): Card {
+                title: "TWO-FACTOR AUTHENTICATION";
+                icon: @image-url("../../../assets/shield.svg");
+                VerticalLayout {
+                    spacing: 12px;
+                    Text {
+                        text: "Protect this account with 2FA.";
+                        font-size: 13px;
+                        color: Theme.text-secondary;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 12px;
+                        Rectangle {
+                            height: 36px;
+                            border-radius: Theme.border-radius;
+                            background: add-totp-touch.has-hover ? Theme.primary : Theme.primary-glow;
+                            animate background { duration: 200ms; }
+                            add-totp-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.open-add-totp-modal();
+                                }
+                            }
+
+                            HorizontalLayout {
+                                padding-left: 12px;
+                                padding-right: 12px;
+                                spacing: 8px;
+                                alignment: center;
+                                Text {
+                                    text: "+ Add New";
+                                    font-size: 13px;
+                                    font-weight: 600;
+                                    color: add-totp-touch.has-hover ? Colors.white : Theme.primary;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            height: 36px;
+                            border-radius: Theme.border-radius;
+                            background: link-totp-touch.has-hover ? Theme.surface-hover : Theme.surface;
+                            border-width: 1px;
+                            border-color: Theme.border;
+                            animate background { duration: 200ms; }
+                            link-totp-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.open-link-totp-modal();
+                                }
+                            }
+
+                            HorizontalLayout {
+                                padding-left: 12px;
+                                padding-right: 12px;
+                                spacing: 8px;
+                                alignment: center;
+                                Text {
+                                    text: "Link Existing";
+                                    font-size: 13px;
+                                    font-weight: 600;
+                                    color: Theme.text-primary;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -321,8 +413,8 @@ export component DetailPanel inherits Rectangle {
                     }
                 }
             }
-        }
-    }
+        } // End VerticalLayout
+} // End ScrollView
 
     // Empty State (no selection)
     if (!root.has-selection): VerticalLayout {

@@ -7,7 +7,7 @@ use crate::ui::{MainWindow, VaultEntryData};
 use crate::ui::bridge::state::AppState;
 use crate::ui::bridge::auth::authenticate_user;
 use crate::ui::bridge::icons::fetch_website_icon;
-use crate::ui::bridge::model::{generate_vault_entries, apply_vault_model, account_to_data, totp_to_data};
+use crate::ui::bridge::model::{self, generate_vault_entries, apply_vault_model, account_to_data, totp_to_data};
 use crate::vault::{format, VaultMode};
 use crate::vault::entry::{AccountEntry, TotpEntry};
 use crate::memory::guard::SecureBuffer;
@@ -420,10 +420,10 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
         }
     });
 
-    // 14. Save TOTP
+    // 14. Save TOTP (Create or Update)
     let app_ref = app_weak.clone();
     let state_clone = state.clone();
-    app.on_save_totp(move |id, account, secret, issuer| {
+    app.on_save_totp(move |id, account, secret, issuer, linked_account_id| {
         let app_weak = app_ref.clone();
         let state_thread = state_clone.clone();
 
@@ -431,7 +431,6 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
              let (path, key_copy, mode, pass_copy, entries) = {
                  let mut state = state_thread.lock().unwrap();
                  
-                 // Extract search/filter before pattern matching mutably
                  let search = state.current_search.clone();
                  let filter = state.current_filter.clone();
                  
@@ -442,50 +441,44 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
                     let sec_clean = secret.as_str().replace(" ", "").replace("-", "").to_uppercase();
                     let account_name: String = account.into();
                     let issuer_name: String = issuer.into();
+                    let linked_id_input: String = linked_account_id.into();
 
-                    println!("DEBUG: saving TOTP with ID: '{}', Secret: '{}', Clean: '{}'", id_str, secret.as_str(), sec_clean);
+                    println!("DEBUG: saving TOTP with ID: '{}', Secret: '{}'", id_str, secret.as_str());
                     
                     if id_str.is_empty() {
                         // Create New TOTP
                         println!("DEBUG: creating NEW TOTP entry");
                         
-                        // Attempt Automatic Linking: proper relational linking requires a valid Account ID
-                        // Strategy: Look for an ACTIVE account where title == issuer AND username == account_name
-                        // This allows "Smart Linking" when the user adds a TOTP that matches an account.
-                        let linked_id = vault.accounts.iter()
+                        // Use provided linked_id if available, otherwise legacy smart link
+                         let linked_id = if !linked_id_input.is_empty() {
+                            Some(linked_id_input)
+                        } else {
+                            vault.accounts.iter()
                             .find(|a| !a.deleted && a.title == issuer_name && a.username == account_name)
-                            .map(|a| a.id.clone());
+                            .map(|a| a.id.clone())
+                        };
 
                         if let Some(entry) = TotpEntry::new(
                             issuer_name,
                             account_name,
                             sec_clean.as_bytes(),
-                            linked_id // Smart Link
+                            linked_id
                         ) {
                             vault.totps.push(entry);
                         }
                     } else {
                         // Edit Existing TOTP
-                        println!("DEBUG: editing EXISTING TOTP entry");
                         if let Some(entry) = vault.totps.iter_mut().find(|e| e.id == id_str) {
-                            println!("DEBUG: entry found, updating fields");
                             entry.issuer = issuer_name.clone();
                             entry.account_name = account_name.clone();
                             if let Some(buf) = SecureBuffer::from_slice(sec_clean.as_bytes()) {
                                 entry.secret = buf;
                             }
-                            
-                            // Re-evaluate link if it was broken or if names changed? 
-                            // For v1, let's keep existing link if set, OR try to link if None.
-                            if entry.linked_account_id.is_none() {
-                                 entry.linked_account_id = vault.accounts.iter()
-                                    .find(|a| !a.deleted && a.title == issuer_name && a.username == account_name)
-                                    .map(|a| a.id.clone());
+                            // Update link if provided
+                            if !linked_id_input.is_empty() {
+                                entry.linked_account_id = Some(linked_id_input);
                             }
-                            
                             entry.updated_at = chrono::Utc::now().timestamp();
-                        } else {
-                             println!("DEBUG: entry NOT found for ID: {}", id_str);
                         }
                     }
                     
@@ -513,6 +506,128 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
                   if let Some(app) = app_weak.upgrade() {
                       apply_vault_model(&app, entries);
                       app.set_current_screen(3); // Go back to main
+                      app.set_show_totp_modal(false);
+                      // Refresh selection if needed
+                      let sel = app.get_selected_entry_id();
+                      if !sel.is_empty() {
+                          app.invoke_select_entry(sel);
+                      }
+                  }
+             });
+        });
+    });
+
+    // 20. Link TOTP to Account
+    let app_ref_link = app_weak.clone();
+    let state_link = state.clone();
+    app.on_link_totp(move |totp_id, account_id| {
+        let app_weak = app_ref_link.clone();
+        let state_thread = state_link.clone();
+        
+        thread::spawn(move || {
+             let (path, key_copy, mode, pass_copy, entries) = {
+                 let mut state = state_thread.lock().unwrap();
+                 let search = state.current_search.clone();
+                 let filter = state.current_filter.clone();
+                 
+                  let AppState { vault, key, vault_path, password: state_pass, .. } = &mut *state;
+                 
+                  if let (Some(vault), Some(key), Some(path)) = (vault, key, vault_path) {
+                        let t_id = totp_id.as_str();
+                        let a_id = account_id.as_str();
+                        
+                        // Find TOTP and update linked_account_id
+                        if let Some(entry) = vault.totps.iter_mut().find(|e| e.id == t_id) {
+                            entry.linked_account_id = Some(a_id.into());
+                            entry.updated_at = chrono::Utc::now().timestamp();
+                        }
+                        
+                        vault.sequence_number += 1;
+                        vault.last_updated = chrono::Utc::now();
+                        
+                        let key_copy = SecureBuffer::from_slice(&key[..]);
+                        let pass_copy = if let Some(p) = state_pass { SecureBuffer::from_slice(&p[..]) } else { None };
+                        let entries = generate_vault_entries(vault, &search, &filter);
+                        
+                        (path.clone(), key_copy, vault.mode, pass_copy, entries)
+                  } else { return; }
+             };
+             
+              if let Some(key_buf) = key_copy {
+                 let state = state_thread.lock().unwrap();
+                 if let Some(vault) = &state.vault {
+                     let _ = format::save_vault(&path, vault, &key_buf, mode, pass_copy.as_ref().map(|b| &b[..]));
+                 }
+             }
+
+             let _ = slint::invoke_from_event_loop(move || {
+                  if let Some(app) = app_weak.upgrade() {
+                      apply_vault_model(&app, entries);
+                      // Force refresh of details panel
+                      let sel = app.get_selected_entry_id();
+                      if !sel.is_empty() {
+                          app.invoke_select_entry(sel);
+                      }
+                  }
+             });
+        });
+    });
+
+    // 21. Unlink TOTP
+    let app_ref_unlink = app_weak.clone();
+    let state_unlink = state.clone();
+    app.on_unlink_totp(move |account_id| {
+        let app_weak = app_ref_unlink.clone();
+        let state_thread = state_unlink.clone();
+
+        thread::spawn(move || {
+             let (path, key_copy, mode, pass_copy, entries) = {
+                 let mut state = state_thread.lock().unwrap();
+                 let search = state.current_search.clone();
+                 let filter = state.current_filter.clone();
+                 
+                  let AppState { vault, key, vault_path, password: state_pass, .. } = &mut *state;
+                 
+                  if let (Some(vault), Some(key), Some(path)) = (vault, key, vault_path) {
+                        let a_id = account_id.as_str();
+                        println!("DEBUG: Unlinking TOTP for Account ID: {}", a_id);
+
+                        // Find TOTP linked to this account and Unlink it
+                        // Correct logic: find TOTP where linked_account_id == a_id
+                        if let Some(entry) = vault.totps.iter_mut().find(|e| e.linked_account_id.as_deref() == Some(a_id)) {
+                            println!("DEBUG: Unlinking TOTP ID: {}", entry.id);
+                            entry.linked_account_id = None;
+                            entry.updated_at = chrono::Utc::now().timestamp();
+                        } else {
+                            println!("DEBUG: No TOTP found to unlink for account {}", a_id);
+                        }
+                        
+                        vault.sequence_number += 1;
+                        vault.last_updated = chrono::Utc::now();
+                        
+                        let key_copy = SecureBuffer::from_slice(&key[..]);
+                        let pass_copy = if let Some(p) = state_pass { SecureBuffer::from_slice(&p[..]) } else { None };
+                        let entries = generate_vault_entries(vault, &search, &filter);
+                        
+                        (path.clone(), key_copy, vault.mode, pass_copy, entries)
+                  } else { return; }
+             };
+             
+              if let Some(key_buf) = key_copy {
+                 let state = state_thread.lock().unwrap();
+                 if let Some(vault) = &state.vault {
+                     let _ = format::save_vault(&path, vault, &key_buf, mode, pass_copy.as_ref().map(|b| &b[..]));
+                 }
+             }
+
+             let _ = slint::invoke_from_event_loop(move || {
+                  if let Some(app) = app_weak.upgrade() {
+                      apply_vault_model(&app, entries);
+                      // Force refresh of details panel
+                      let sel = app.get_selected_entry_id();
+                      if !sel.is_empty() {
+                          app.invoke_select_entry(sel);
+                      }
                   }
              });
         });
@@ -576,6 +691,56 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
         if let Err(e) = copy_to_clipboard(text.as_str(), 10) {
             eprintln!("[ERROR] Clipboard error: {}", e);
         }
+    });
+
+    // 22. Secure Copy TOTP
+    let app_ref = app_weak.clone();
+    let state_copy = state.clone();
+    app.on_copy_totp_code(move |id| {
+        let _app = app_ref.upgrade().unwrap();
+        let state_thread = state_copy.clone();
+        
+        thread::spawn(move || {
+            println!("[DEBUG] Secure Copy TOTP requested for ID: {}", id);
+            
+            // 1. Authenticate
+            if !authenticate_user() {
+                println!("[DEBUG] Auth failed/cancelled for TOTP copy");
+                return;
+            }
+
+            // 2. Locate entry and generate code
+            let code_to_copy = {
+                let state = state_thread.lock().unwrap();
+                if let Some(vault) = &state.vault {
+                    let id_str = id.as_str();
+                    
+                    // Try to find as Account (linked TOTP)
+                    if let Some(acc) = vault.accounts.iter().find(|e| e.id == id_str) {
+                         if let Some(totp) = vault.totps.iter().find(|t| !t.deleted && t.linked_account_id.as_deref() == Some(id_str)) {
+                             Some(model::generate_totp_code(&totp.secret, Some(acc.title.clone()), acc.username.clone()))
+                         } else { None }
+                    } 
+                    // Try to find as TOTP directly
+                    else if let Some(totp) = vault.totps.iter().find(|e| e.id == id_str) {
+                        Some(model::generate_totp_code(&totp.secret, Some(totp.issuer.clone()), totp.account_name.clone()))
+                    } else {
+                        None
+                    }
+                } else { None }
+            };
+
+            // 3. Copy if found
+            if let Some(code) = code_to_copy {
+                let _ = slint::invoke_from_event_loop(move || {
+                     if let Err(e) = copy_to_clipboard(&code, 10) {
+                         eprintln!("[ERROR] Clipboard error: {}", e);
+                     } else {
+                         println!("[DEBUG] TOTP code copied securely");
+                     }
+                });
+            }
+        });
     });
 
     // 18. Get Entry Details (Sync)

@@ -12,7 +12,7 @@ export { VaultEntryData, MainWindow, UpdateWindow }
 
 component MainWindow inherits Window {
     title: "PassX — Secure Vault";
-    icon: @image-url("../../assets/logo.jpg");
+    icon: @image-url("../../assets/logo.png");
     default-font-family: Theme.font-family;
     default-font-size: Theme.font-size-body;
     preferred-width: 1050px;
@@ -34,7 +34,8 @@ component MainWindow inherits Window {
     in-out property <string> revealed-password: "";
     in-out property <bool> is-password-revealed: false;
     in-out property <float> totp-progress: 0.0;
-    
+    in-out property <bool> show-totp-modal: false;
+
     // Environment
     in property <bool> tpm-available: true;
 
@@ -46,7 +47,9 @@ component MainWindow inherits Window {
     callback lock-vault();
     callback copy-password(string);
     callback copy-username(string);
-    callback save-totp(string, string, string, string); // id, name, secret, issuer
+    callback save-totp(string, string, string, string, string); // id, name, secret, issuer, linked_account_id
+    callback link-totp(string, string); // totp_id, account_id
+    callback unlink-totp(string); // account_id
     callback delete-entry(string);
     callback restore-entry(string);
     callback save-entry(string, string, string, string, string); // id, title, username, password, url (no folder)
@@ -56,6 +59,7 @@ component MainWindow inherits Window {
     callback generate-password(int, bool, bool, bool, bool) -> string;
     callback copy-to-clipboard(string);
     callback get-entry-details(string) -> VaultEntryData;
+    callback copy-totp-code(string);
 
     // QR Code Scanning
     callback scan-qr-from-screen();
@@ -168,11 +172,20 @@ component MainWindow inherits Window {
         copy-to-clipboard(t) => {
             root.copy-to-clipboard(t);
         }
-        save-totp(id, acc, sec, iss) => {
-            root.save-totp(id, acc, sec, iss);
+        save-totp(id, acc, sec, iss, link) => {
+            root.save-totp(id, acc, sec, iss, link);
+        }
+        link-totp(totp-id, acc-id) => {
+            root.link-totp(totp-id, acc-id);
+        }
+        unlink-totp(id) => {
+            root.unlink-totp(id);
         }
         get-entry-details(id) => {
             return root.get-entry-details(id);
+        }
+        copy-totp-code(id) => {
+            root.copy-totp-code(id);
         }
         // QR Scanning
         scan-qr-from-screen => {
@@ -188,6 +201,7 @@ component MainWindow inherits Window {
         qr-scanned-account <=> root.qr-scanned-account;
         qr-scanned-secret <=> root.qr-scanned-secret;
         qr-scanned-issuer <=> root.qr-scanned-issuer;
+        show-totp-modal <=> root.show-totp-modal;
     }
 
     // 5: Generator

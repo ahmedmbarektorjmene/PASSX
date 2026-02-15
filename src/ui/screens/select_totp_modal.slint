@@ -1,0 +1,130 @@
+import { Theme } from "../theme.slint";
+import {
+    PrimaryButton,
+    SecondaryButton,
+    Divider,
+    Label,
+} from "../components.slint";
+import { ScrollView, LineEdit } from "std-widgets.slint";
+import { VaultEntryData } from "../types.slint";
+
+export component SelectTotpModal inherits Rectangle {
+    in property <[VaultEntryData]> entries; // Filtered list of TOTPs
+    callback select(string); // Returns ID
+    callback close();
+    callback search(string);
+    background: rgba(0, 0, 0, 0.6);
+    TouchArea {
+        clicked => {
+            root.close();
+        }
+    }
+
+    Rectangle {
+        width: 420px;
+        height: 500px;
+        background: Theme.surface;
+        border-radius: Theme.border-radius-xl;
+        border-width: 1px;
+        border-color: Theme.border;
+        TouchArea { } // Block clicks
+
+        VerticalLayout {
+            padding: 24px;
+            spacing: 16px;
+
+            // Header
+            Text {
+                text: "Link Authenticator";
+                font-size: Theme.font-size-h3;
+                font-weight: 800;
+                color: Theme.text-primary;
+            }
+
+            // Search
+            LineEdit {
+                placeholder-text: "Search authenticators...";
+                font-size: 13px;
+                height: 36px;
+                edited(t) => {
+                    root.search(t);
+                }
+            }
+
+            Divider { }
+
+            // List
+            ScrollView {
+                VerticalLayout {
+                    spacing: 8px;
+                    for entry in root.entries: Rectangle {
+                        height: 50px;
+                        border-radius: Theme.border-radius;
+                        background: item-touch.has-hover ? Theme.surface-hover : Theme.surface;
+                        animate background { duration: 150ms; }
+                        item-touch := TouchArea {
+                            clicked => {
+                                root.select(entry.id);
+                            }
+                        }
+
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            spacing: 12px;
+                            alignment: center;
+
+                            // Icon placeholder
+                            Rectangle {
+                                width: 32px;
+                                height: 32px;
+                                border-radius: 16px;
+                                background: Theme.surface-subtle;
+                                Text {
+                                    text: "🛡️";
+                                    vertical-alignment: center;
+                                    horizontal-alignment: center;
+                                    font-size: 14px;
+                                }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+                                Text {
+                                    text: entry.title; // Issuer
+                                    font-size: 13px;
+                                    font-weight: 600;
+                                    color: Theme.text-primary;
+                                    overflow: elide;
+                                }
+
+                                Text {
+                                    text: entry.username; // Account Name
+                                    font-size: 11px;
+                                    color: Theme.text-muted;
+                                    overflow: elide;
+                                }
+                            }
+                            
+                            // Link Indicator
+                            if (entry.has_totp): Text { // Reusing has_totp to mean "is linked"? No, logic needed.
+                                // simpler: just show arrow
+                                text: "Link →";
+                                font-size: 11px;
+                                color: Theme.primary;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+
+            SecondaryButton {
+                text: "Cancel";
+                clicked => {
+                    root.close();
+                }
+            }
+        }
+    }
+}

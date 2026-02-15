@@ -40,8 +40,8 @@ pub fn generate_vault_entries(vault: &Vault, search: &str, filter: &str) -> Vec<
             // Find linked TOTP
             let linked_totp = vault.totps.iter().find(|t| !t.deleted && t.linked_account_id.as_deref() == Some(&acc.id));
             
-            let totp_code = if let Some(t) = linked_totp {
-                generate_totp_code(&t.secret, Some(acc.title.clone()), acc.username.clone())
+            let totp_code = if let Some(_t) = linked_totp {
+                "******".to_string()
             } else {
                 String::new()
             };
@@ -77,7 +77,7 @@ pub fn generate_vault_entries(vault: &Vault, search: &str, filter: &str) -> Vec<
                 continue;
             }
 
-            let code = generate_totp_code(&t.secret, Some(t.issuer.clone()), t.account_name.clone());
+            let code = "******".to_string();
             let initial = t.issuer.chars().next().unwrap_or('?').to_uppercase().to_string();
             let icon_data = decode_icon_data(&t.icon_data);
 
@@ -112,8 +112,8 @@ pub fn account_to_data(e: &crate::vault::entry::AccountEntry, linked_totp: Optio
         (Image::default(), false)
     };
 
-    let totp_code = if let Some(t) = linked_totp {
-        generate_totp_code(&t.secret, Some(e.title.clone()), e.username.clone())
+    let totp_code = if let Some(_t) = linked_totp {
+        "******".to_string()
     } else {
         String::new()
     };
@@ -145,7 +145,7 @@ pub fn totp_to_data(t: &crate::vault::entry::TotpEntry) -> VaultEntryData {
         (Image::default(), false)
     };
 
-    let code = generate_totp_code(&t.secret, Some(t.issuer.clone()), t.account_name.clone());
+    let code = "******".to_string();
 
     VaultEntryData {
         id: t.id.clone().into(),
@@ -208,7 +208,7 @@ fn decode_icon_data(b64: &Option<String>) -> Option<(Vec<u8>, u32, u32)> {
     }
 }
 
-fn generate_totp_code(secret: &[u8], issuer: Option<String>, account: String) -> String {
+pub fn generate_totp_code(secret: &[u8], issuer: Option<String>, account: String) -> String {
     let secret_str = String::from_utf8_lossy(secret).to_string()
         .replace(" ", "")
         .replace("-", "")
