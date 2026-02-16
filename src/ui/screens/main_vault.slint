@@ -56,6 +56,13 @@ export component MainVaultScreen inherits Rectangle {
     // New callback to fetch details synchronously
     callback get-entry-details(string) -> VaultEntryData;
     callback copy-totp-code(string);
+    
+    // Secure Edit Callbacks
+    callback request-edit-entry(string);
+    callback request-edit-totp(string);
+
+    // Removed direct authorized functions in favor of property triggers
+
 
     // Generator Callbacks
     callback generate-password-from-settings() -> string;
@@ -78,6 +85,42 @@ export component MainVaultScreen inherits Rectangle {
     property <string> current-search: "";
     property <bool> show-modal: false;
     in-out property <bool> show-totp-modal: false;
+
+    // Secure Edit Signals (Inputs)
+    in property <string> auth-edit-id;
+    in property <int> auth-edit-tick;
+    in property <string> auth-totp-id;
+    in property <int> auth-totp-tick;
+    changed auth-edit-tick => {
+        if (root.auth-edit-tick > 0) {
+            root.edit-id = root.auth-edit-id;
+            let d = root.get-entry-details(root.auth-edit-id);
+            if (d.id == root.auth-edit-id) {
+                root.edit-title = d.title;
+                root.edit-username = d.username;
+                root.edit-password = "";
+                root.edit-url = d.url;
+                root.edit-notes = d.notes;
+                root.show-modal = true;
+            }
+        }
+    }
+    changed auth-totp-tick => {
+        if (root.auth-totp-tick > 0) {
+            let d = root.get-entry-details(root.auth-totp-id);
+            if (d.id == root.auth-totp-id) {
+                root.totp-edit-id = d.id;
+                root.totp-name = d.title;
+                root.totp-issuer = d.username;
+                root.totp-secret = "";
+                root.qr-scan-error = "";
+                root.qr-scanned-account = "";
+                root.qr-scanned-secret = "";
+                root.qr-scanned-issuer = "";
+                root.show-totp-modal = true;
+            }
+        }
+    }
     property <string> edit-id: "";
     property <string> edit-title: "";
     property <string> edit-username: "";
@@ -379,20 +422,7 @@ export component MainVaultScreen inherits Rectangle {
                 root.copy-totp-code(id);
             }
             edit-totp(id) => {
-                // Edit Logic
-                let d = root.get-entry-details(id);
-                if (d.id == id) {
-                    root.totp-edit-id = d.id;
-                    root.totp-name = d.title;
-                    root.totp-issuer = d.username;
-                    root.totp-secret = ""; // We don't load secret back into UI for now? Or should we?
-                                           // User wants "view same menu as new", implies standard fields.
-                    root.qr-scan-error = "";
-                    root.qr-scanned-account = "";
-                    root.qr-scanned-secret = "";
-                    root.qr-scanned-issuer = "";
-                    root.show-totp-modal = true;
-                }
+                root.request-edit-totp(id);
             }
             request-context-menu(id, idx, x, y) => {
                 root.context-menu-entry-id = id;
@@ -454,13 +484,7 @@ export component MainVaultScreen inherits Rectangle {
             // Callbacks
 
             edit-entry(id, title, user, url) => {
-                root.edit-id = id;
-                root.edit-title = title;
-                root.edit-username = user;
-                root.edit-password = "";
-                root.edit-url = url;
-                root.edit-notes = root.sel-notes;
-                root.show-modal = true;
+                root.request-edit-entry(id);
             }
             restore-entry(id) => {
                 root.restore-entry(id);
@@ -568,23 +592,9 @@ export component MainVaultScreen inherits Rectangle {
                         let d = root.get-entry-details(root.context-menu-entry-id);
                         if (d.id == root.context-menu-entry-id) {
                             if (d.entry_type == "totp") {
-                                root.totp-edit-id = d.id;
-                                root.totp-name = d.title;
-                                root.totp-issuer = d.username;
-                                root.totp-secret = "";
-                                root.qr-scan-error = "";
-                                root.qr-scanned-account = "";
-                                root.qr-scanned-secret = "";
-                                root.qr-scanned-issuer = "";
-                                root.show-totp-modal = true;
+                                root.request-edit-totp(d.id);
                             } else {
-                                root.edit-id = d.id;
-                                root.edit-title = d.title;
-                                root.edit-username = d.username;
-                                root.edit-password = "";
-                                root.edit-url = d.url;
-                                root.edit-notes = d.notes;
-                                root.show-modal = true;
+                                root.request-edit-entry(d.id);
                             }
                         }
                         root.show-context-menu = false;

@@ -1,9 +1,5 @@
 you are a nigger dont do these without my permission:
 
-* you should modify any field in the OTP or Account by clicking on the edit button and accepting the windows security prompt with typing the user password. so when you click on the modify button it should request the windows security prompt with typing the user password to access the edit modal.
-
-* you can show the password (and you cannot change it) by clicking on the eye icon to make it flips to show the password eye-off icon in the detail_panel and it will disappear (zeroed) from the ram and the vram after 10 seconds and also the eye-off icon will flip back to the eye icon.
-
 * master password should be also necessary (required) for device-bound encrypted wallets (TPM). master password can not be disabled.
 
 * add feature to change master password in settings.

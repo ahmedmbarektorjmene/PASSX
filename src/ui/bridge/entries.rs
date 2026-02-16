@@ -1,4 +1,4 @@
-use slint::Weak;
+use slint::{Weak, ComponentHandle};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::sync::mpsc::channel;
@@ -16,6 +16,42 @@ use crate::memory::guard::SecureBuffer;
 
 pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
     let app = app_weak.upgrade().unwrap();
+
+    // Secure Edit Handlers
+    let app_edit = app.as_weak();
+    let app_edit_totp = app.as_weak();
+
+    app.on_request_edit_entry(move |id| {
+        println!("[DEBUG] Request edit entry: {}", id);
+        let app = app_edit.clone();
+        thread::spawn(move || {
+             if authenticate_user() {
+                 let _ = slint::invoke_from_event_loop(move || {
+                     if let Some(app) = app.upgrade() {
+                         app.set_auth_edit_id(id.clone().into());
+                         let current = app.get_auth_edit_tick();
+                         app.set_auth_edit_tick(current + 1);
+                     }
+                 });
+             }
+        });
+    });
+
+    app.on_request_edit_totp(move |id| {
+        println!("[DEBUG] Request edit totp: {}", id);
+         let app = app_edit_totp.clone();
+        thread::spawn(move || {
+             if authenticate_user() {
+                 let _ = slint::invoke_from_event_loop(move || {
+                     if let Some(app) = app.upgrade() {
+                         app.set_auth_totp_id(id.clone().into());
+                         let current = app.get_auth_totp_tick();
+                         app.set_auth_totp_tick(current + 1);
+                     }
+                 });
+             }
+        });
+    });
 
     // 6. Copy Password
     let state_copy = state.clone();
@@ -397,27 +433,69 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
         let app_weak = app_ref.clone();
 
         thread::spawn(move || {
-            if !authenticate_user() { return; }
+            // [Scope A] Authenticate and Reveal
+            // We use a block to ensure sensitive data (password string) is dropped/zeroed 
+            // BEFORE we start sleeping.
+            {
+                if !authenticate_user() { return; }
 
-            let pass_str = {
-                let state = state_thread.lock().unwrap();
-                if let Some(vault) = &state.vault {
-                    if let Some(entry) = vault.accounts.iter().find(|e| e.id == id.as_str()) {
-                         let pass_bytes = &entry.password[..];
-                         Some(String::from_utf8_lossy(pass_bytes).to_string())
+                // Retrieve password securely
+                let pass_str = {
+                    let state = state_thread.lock().unwrap();
+                    if let Some(vault) = &state.vault {
+                        if let Some(entry) = vault.accounts.iter().find(|e| e.id == id.as_str()) {
+                             let pass_bytes = &entry.password[..];
+                             // Convert to String for UI
+                             Some(String::from_utf8_lossy(pass_bytes).to_string())
+                        } else { None }
                     } else { None }
-                } else { None }
-            };
+                };
 
-            if let Some(pass) = pass_str {
-                let _ = slint::invoke_from_event_loop(move || {
-                    if let Some(app) = app_weak.upgrade() {
-                        app.set_revealed_password(pass.into());
-                        app.set_is_password_revealed(true);
-                        println!("[DEBUG] UI Thread: Password revealed");
+                if let Some(mut pass) = pass_str {
+                    let app_weak_clone = app_weak.clone();
+                    let pass_for_ui = pass.clone(); 
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(app) = app_weak_clone.upgrade() {
+                            // Send to UI (Copy 1 -> UI Internal Memory)
+                            println!("[DEBUG] Setting revealed password to: '{}'", pass_for_ui);
+                            app.set_revealed_password(pass_for_ui.into());
+                            app.set_is_password_revealed(true);
+                            println!("[DEBUG] UI Thread: Password revealed");
+                        }
+                    });
+
+                    // Explicitly zeroize the local String buffer before dropping
+                    // Note: String::as_mut_vec() is unsafe but standard for zeroing strings in place
+                    // We need to import Zeroize trait or do it manually.
+                    // Since Zeroize dep is in Cargo.toml, we can use it if imported.
+                    // If not imported, we can manually zero.
+                    // Manual zeroing:
+                    unsafe {
+                        let vec = pass.as_mut_vec();
+                        for byte in vec { *byte = 0; }
                     }
-                });
-            }
+                    // 'pass' is dropped here, now containing zeros.
+                }
+            } // End of Scope A - Sensitive data dropped
+
+            // [Scope B] Wait (No sensitive data in stack)
+            println!("[DEBUG] BG Thread: Sleeping 10s...");
+            thread::sleep(Duration::from_secs(10));
+
+            // [Scope C] Auto-hide and Clear UI
+            let _ = slint::invoke_from_event_loop(move || {
+                if let Some(app) = app_weak.upgrade() {
+                    // Check if *still* revealed (user might have closed it manually?)
+                    // It doesn't hurt to clear it anyway.
+                    // Clearing the property removes the string from proper UI memory.
+                    // (Assuming Slint drops the old string when replaced)
+                    if app.get_is_password_revealed() {
+                        println!("[DEBUG] UI Thread: Auto-hiding password after 10s");
+                        app.set_revealed_password("".into());
+                        app.set_is_password_revealed(false);
+                    }
+                }
+            });
         });
     });
 

@@ -64,6 +64,24 @@ component MainWindow inherits Window {
     callback get-entry-details(string) -> VaultEntryData;
     callback copy-totp-code(string);
 
+    // Secure Edit Handshake Properties
+    in-out property <string> auth-edit-id: "";
+    in-out property <int> auth-edit-tick: 0;
+    in-out property <string> auth-totp-id: "";
+    in-out property <int> auth-totp-tick: 0;
+
+    // Secure Edit Callbacks (Bridge)
+    callback request-edit-entry(string);
+    callback request-edit-totp(string);
+    public function authorized-edit-entry(id: string) {
+        root.auth-edit-id = id;
+        root.auth-edit-tick += 1;
+    }
+    public function authorized-edit-totp(id: string) {
+        root.auth-totp-id = id;
+        root.auth-totp-tick += 1;
+    }
+
     // QR Code Scanning
     callback scan-qr-from-screen();
     callback scan-qr-from-clipboard();
@@ -133,6 +151,11 @@ component MainWindow inherits Window {
         width: 100%;
         height: 100%;
         entries: root.vault-entries;
+        // Bind auth signals
+        auth-edit-id: root.auth-edit-id;
+        auth-edit-tick: root.auth-edit-tick;
+        auth-totp-id: root.auth-totp-id;
+        auth-totp-tick: root.auth-totp-tick;
         lock-vault => {
             root.lock-vault();
         }
@@ -163,8 +186,8 @@ component MainWindow inherits Window {
             root.reveal-password(id);
         }
         selected-entry-id: root.selected-entry-id;
-        revealed-password: root.revealed-password;
-        is-password-revealed: root.is-password-revealed;
+        revealed-password <=> root.revealed-password;
+        is-password-revealed <=> root.is-password-revealed;
         totp-progress: root.totp-progress;
         open-generator => {
             root.current-screen = 5;
@@ -189,6 +212,12 @@ component MainWindow inherits Window {
         }
         copy-totp-code(id) => {
             root.copy-totp-code(id);
+        }
+        request-edit-entry(id) => {
+            root.request-edit-entry(id);
+        }
+        request-edit-totp(id) => {
+            root.request-edit-totp(id);
         }
         // QR Scanning
         scan-qr-from-screen => {
