@@ -1,0 +1,166 @@
+import { Theme } from "../theme.slint";
+import { PrimaryButton, SecondaryButton } from "../components.slint";
+import { Slider } from "std-widgets.slint";
+
+component CheckRow inherits HorizontalLayout {
+    in property <string> text;
+    in-out property <bool> checked;
+    callback toggled();
+    spacing: 8px;
+    Rectangle {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        border-width: 1px;
+        border-color: root.checked ? Theme.primary : Theme.border-subtle;
+        background: root.checked ? Theme.primary : Colors.transparent;
+        if root.checked: Text {
+            text: "✓";
+            color: white;
+            font-size: 10px;
+            x: 3px;
+            y: 1px;
+        }
+        TouchArea {
+            clicked => {
+                root.toggled();
+            }
+        }
+    }
+
+    Text {
+        text: root.text;
+        font-size: 12px;
+        color: Theme.text-primary;
+        vertical-alignment: center;
+    }
+}
+
+export component GeneratorBubble inherits Rectangle {
+    in-out property <int> length: 16;
+    in-out property <bool> include_uppercase: true;
+    in-out property <bool> include_lowercase: true;
+    in-out property <bool> include_numbers: true;
+    in-out property <bool> include_symbols: true;
+    
+    // Callback when any setting changes
+    callback settings-changed(int, bool, bool, bool, bool);
+    callback close-requested();
+    width: 260px;
+    background: Theme.surface;
+    border-radius: Theme.border-radius-lg;
+    border-width: 1px;
+    border-color: Theme.border;
+    // Shadow effect (simulated with nested rectangles or just border for now)
+    
+    // Explicitly bind height to content to prevent expansion to parent height
+    height: layout.min-height;
+    layout := VerticalLayout {
+        padding: 8px;
+        spacing: 6px;
+
+        // Header
+        HorizontalLayout {
+            alignment: space-between;
+            Text {
+                text: "Generator Settings";
+                font-weight: 700;
+                font-size: 13px;
+                color: Theme.text-primary;
+            } 
+            
+            
+            // Close X
+            Rectangle {
+                width: 20px;
+                height: 20px;
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.close-requested();
+                    }
+                }
+
+                Text {
+                    text: "x";
+                    font-size: 16px;
+                    color: Theme.text-muted;
+                    width: 100%;
+                    height: 100%;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // Length
+        VerticalLayout {
+            spacing: 4px;
+            HorizontalLayout {
+                alignment: space-between;
+                Text {
+                    text: "Length";
+                    font-size: 11px;
+                    color: Theme.text-secondary;
+                }
+
+                Text {
+                    text: root.length;
+                    font-size: 11px;
+                    color: Theme.primary;
+                    font-weight: 700;
+                }
+            }
+
+            Slider {
+                minimum: 8;
+                maximum: 128;
+                value: root.length;
+                changed(val) => {
+                    root.length = round(val);
+                    root.settings-changed(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+                }
+            }
+        }
+
+        // Options
+        VerticalLayout {
+            spacing: 8px;
+            CheckRow {
+                text: "Uppercase (A-Z)";
+                checked: root.include_uppercase;
+                toggled => {
+                    root.include_uppercase = !root.include_uppercase;
+                    root.settings-changed(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+                }
+            }
+
+            CheckRow {
+                text: "Lowercase (a-z)";
+                checked: root.include_lowercase;
+                toggled => {
+                    root.include_lowercase = !root.include_lowercase;
+                    root.settings-changed(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+                }
+            }
+
+            CheckRow {
+                text: "Numbers (0-9)";
+                checked: root.include_numbers;
+                toggled => {
+                    root.include_numbers = !root.include_numbers;
+                    root.settings-changed(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+                }
+            }
+
+            CheckRow {
+                text: "Symbols (!@#)";
+                checked: root.include_symbols;
+                toggled => {
+                    root.include_symbols = !root.include_symbols;
+                    root.settings-changed(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+                }
+            }
+        }
+    }
+}

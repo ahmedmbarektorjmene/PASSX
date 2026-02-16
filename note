@@ -1,22 +1,20 @@
 you are a nigger dont do these without my permission:
 
-* we can create a random password directly from the create menu by clicking the random (dice) icon on the right side of the password field without the need to type it or without the need to copy it from the password generator. and by default it will be generated from the password generator's last used settings. so we need to save the password generator's last used settings in the vault.
-
 * you should modify any field in the OTP or Account by clicking on the edit button and accepting the windows security prompt with typing the user password. so when you click on the modify button it should request the windows security prompt with typing the user password to access the edit modal.
 
 * you can show the password (and you cannot change it) by clicking on the eye icon to make it flips to show the password eye-off icon in the detail_panel and it will disappear (zeroed) from the ram and the vram after 10 seconds and also the eye-off icon will flip back to the eye icon.
 
-* add feature to change master password in settings.
-
 * master password should be also necessary (required) for device-bound encrypted wallets (TPM). master password can not be disabled.
+
+* add feature to change master password in settings.
 
 * the window should not show or leak any information when recording or streaming the screen so it should be invisible.
 
-* the vault can't be deleted or updated or copied by any user without administrator rights and only the passx program can delete or update it or create it. and all of that without making the program run in adminitrator mode. all of that in user mode.
+* the vault can't be deleted or updated or copied by any user without administrator rights and only the passx program can delete or update it or create it. and all of that without making the program run in adminitrator mode. all of that in user mode and not admin mode and not kernel mode.
 
 * add an option in settings to mirror the vault in other locations (C drive, D drive, E drive, etc...) so that the user can access the vault from other storage devices if the main one corrupts in the future.
 
-* save the app state (screen size, last opened vault) so that the user sees the last opened vault when he opens the program (needs unlocking) and the same screen size.
+* save the app state (screen size, last opened vault) so that the user sees the last opened vault when he opens the program (needs unlocking) and the same screen size. all of that should be saved to the localLow or local appdata or roaming appdata folder !!
 
 * make the shrinking of the window more smooth and user friendly.
 

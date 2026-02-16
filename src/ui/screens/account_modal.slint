@@ -1,11 +1,14 @@
 // Account Add/Edit Modal
+import { VaultEntryData, GeneratorSettings } from "../types.slint";
 import { Theme } from "../theme.slint";
 import {
     PrimaryButton,
     SecondaryButton,
     Divider,
     Label,
+    IconButton,
 } from "../components.slint";
+import { GeneratorBubble } from "../components/generator_bubble.slint";
 import { ScrollView, LineEdit, TextEdit } from "std-widgets.slint";
 
 export component AccountModal inherits Rectangle {
@@ -15,12 +18,29 @@ export component AccountModal inherits Rectangle {
     in-out property <string> edit-password: "";
     in-out property <string> edit-url: "";
     in-out property <string> edit-notes: "";
+    in-out property <bool> show-generator-bubble: false;
+    property <GeneratorSettings> bubble-settings: {
+        length: 16,
+        include_uppercase: true,
+        include_lowercase: true,
+        include_numbers: true,
+        include_symbols: true
+    };
+
+    // Generator Callbacks
+    callback generate-password-from-settings() -> string;
+    callback save-generator-settings(int, bool, bool, bool, bool);
+    callback get-generator-settings() -> GeneratorSettings;
     callback save(string, string, string, string, string, string); // id, title, username, password, url, notes
     callback close;
     background: rgba(0, 0, 0, 0.6);
     TouchArea {
         clicked => {
-            root.close();
+            if (root.show-generator-bubble) {
+                root.show-generator-bubble = false;
+            } else {
+                root.close();
+            }
         }
     }
 
@@ -76,6 +96,7 @@ export component AccountModal inherits Rectangle {
             ScrollView {
                 VerticalLayout {
                     spacing: 14px;
+                    padding-right: 12px; // Space for scrollbar
 
                     // Title
                     VerticalLayout {
@@ -112,10 +133,47 @@ export component AccountModal inherits Rectangle {
                             text: "PASSWORD";
                         }
 
-                        LineEdit {
-                            text <=> root.edit-password;
-                            placeholder-text: "Secret Password";
-                            font-size: 13px;
+                        HorizontalLayout {
+                            spacing: 8px;
+                            height: 32px;
+                            LineEdit {
+                                horizontal-stretch: 1;
+                                height: 100%;
+                                text <=> root.edit-password;
+                                placeholder-text: "Secret Password";
+                                font-size: 13px;
+                            }
+                            
+                            // Dice Icon Button
+                            Rectangle {
+                                width: 32px;
+                                height: 32px;
+                                border-radius: 4px;
+                                background: dice-touch.has-hover ? Theme.surface-hover : Theme.surface;
+                                border-width: 1px;
+                                border-color: Theme.border-subtle;
+                                dice-touch := TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => {
+                                        root.edit-password = root.generate-password-from-settings();
+                                    }
+                                    pointer-event(event) => {
+                                        if (event.button == PointerEventButton.right && event.kind == PointerEventKind.down) {
+                                            root.bubble-settings = root.get-generator-settings();
+                                            root.show-generator-bubble = !root.show-generator-bubble;
+                                        }
+                                    }
+                                }
+
+                                Image {
+                                    source: @image-url("../../../assets/generator.svg");
+                                    width: 18px;
+                                    height: 18px;
+                                    colorize: Theme.text-secondary;
+                                    x: (parent.width - self.width) / 2;
+                                    y: (parent.height - self.height) / 2;
+                                }
+                            }
                         }
                     }
 
@@ -171,6 +229,24 @@ export component AccountModal inherits Rectangle {
                         root.close();
                     }
                 }
+            }
+        }
+
+        if (root.show-generator-bubble): GeneratorBubble {
+            x: 160px;
+            y: 200px;
+            
+            // Initialize with current settings when shown
+            length: root.bubble-settings.length;
+            include_uppercase: root.bubble-settings.include_uppercase;
+            include_lowercase: root.bubble-settings.include_lowercase;
+            include_numbers: root.bubble-settings.include_numbers;
+            include_symbols: root.bubble-settings.include_symbols;
+            settings-changed(l, u, lo, n, s) => {
+                root.save-generator-settings(l, u, lo, n, s);
+            }
+            close-requested => {
+                root.show-generator-bubble = false;
             }
         }
     }

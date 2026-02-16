@@ -3,12 +3,12 @@ import { LaunchScreen } from "./screens/launch.slint";
 import { CreateVaultScreen } from "./screens/create_vault.slint";
 import { UnlockScreen } from "./screens/unlock.slint";
 import { MainVaultScreen } from "./screens/main_vault.slint";
-import { VaultEntryData } from "types.slint";
+import { VaultEntryData, GeneratorSettings } from "types.slint";
 import { PasswordGeneratorScreen } from "./screens/generator.slint";
 import { SettingsScreen } from "./screens/settings.slint";
 import { UpdateWindow } from "update_window.slint";
 
-export { VaultEntryData, MainWindow, UpdateWindow }
+export { VaultEntryData, GeneratorSettings, MainWindow, UpdateWindow }
 
 component MainWindow inherits Window {
     title: "PassX — Secure Vault";
@@ -57,6 +57,9 @@ component MainWindow inherits Window {
     callback select-entry(string);
     callback reveal-password(string);
     callback generate-password(int, bool, bool, bool, bool) -> string;
+    callback generate-password-from-settings() -> string;
+    callback save-generator-settings(int, bool, bool, bool, bool);
+    callback get-generator-settings() -> GeneratorSettings;
     callback copy-to-clipboard(string);
     callback get-entry-details(string) -> VaultEntryData;
     callback copy-totp-code(string);
@@ -202,6 +205,17 @@ component MainWindow inherits Window {
         qr-scanned-secret <=> root.qr-scanned-secret;
         qr-scanned-issuer <=> root.qr-scanned-issuer;
         show-totp-modal <=> root.show-totp-modal;
+        
+        // Generator wiring
+        generate-password-from-settings => {
+            root.generate-password-from-settings()
+        }
+        get-generator-settings => {
+            root.get-generator-settings()
+        }
+        save-generator-settings(l, u, lo, n, s) => {
+            root.save-generator-settings(l, u, lo, n, s);
+        }
     }
 
     // 5: Generator
@@ -216,6 +230,12 @@ component MainWindow inherits Window {
         }
         copy-to-clipboard(t) => {
             root.copy-to-clipboard(t);
+        }
+        get-generator-settings => {
+            root.get-generator-settings()
+        }
+        save-generator-settings(l, u, lo, n, s) => {
+            root.save-generator-settings(l, u, lo, n, s);
         }
     }
 

@@ -24,7 +24,7 @@ import { SelectTotpModal } from "./select_totp_modal.slint";
 import { AccountsTab } from "../tabs/accounts_tab.slint";
 import { TotpTab } from "../tabs/totp_tab.slint";
 import { TrashTab } from "../tabs/trash_tab.slint";
-import { VaultEntryData } from "../types.slint";
+import { VaultEntryData, GeneratorSettings } from "../types.slint";
 
 export component MainVaultScreen inherits Rectangle {
     in property <[VaultEntryData]> entries;
@@ -56,6 +56,11 @@ export component MainVaultScreen inherits Rectangle {
     // New callback to fetch details synchronously
     callback get-entry-details(string) -> VaultEntryData;
     callback copy-totp-code(string);
+
+    // Generator Callbacks
+    callback generate-password-from-settings() -> string;
+    callback save-generator-settings(int, bool, bool, bool, bool);
+    callback get-generator-settings() -> GeneratorSettings;
 
 
     // QR Code Scanning
@@ -647,6 +652,15 @@ export component MainVaultScreen inherits Rectangle {
         edit-notes <=> root.edit-notes;
         save(id, title, user, pass, url, notes) => {
             root.save-entry(id, title, user, pass, url, notes);
+        }
+        generate-password-from-settings => {
+            root.generate-password-from-settings()
+        }
+        save-generator-settings(l, u, lo, n, s) => {
+            root.save-generator-settings(l, u, lo, n, s);
+        }
+        get-generator-settings => {
+            root.get-generator-settings()
         }
         close => {
             root.show-modal = false;

@@ -60,6 +60,28 @@ pub struct Vault {
     pub last_updated: DateTime<Utc>,
     pub accounts: Vec<AccountEntry>,
     pub totps: Vec<TotpEntry>,
+    pub generator_settings: GeneratorSettings,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GeneratorSettings {
+    pub length: i32,
+    pub include_uppercase: bool,
+    pub include_lowercase: bool,
+    pub include_numbers: bool,
+    pub include_symbols: bool,
+}
+
+impl Default for GeneratorSettings {
+    fn default() -> Self {
+        Self {
+            length: 16,
+            include_uppercase: true,
+            include_lowercase: true,
+            include_numbers: true,
+            include_symbols: true,
+        }
+    }
 }
 
 #[derive(Debug)]

@@ -1,14 +1,16 @@
 use slint::Weak;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::sync::mpsc::channel;
+use std::time::Duration;
 use crate::io::clipboard::copy_to_clipboard;
 
-use crate::ui::{MainWindow, VaultEntryData};
+use crate::ui::{MainWindow, VaultEntryData, GeneratorSettings};
 use crate::ui::bridge::state::AppState;
 use crate::ui::bridge::auth::authenticate_user;
 use crate::ui::bridge::icons::fetch_website_icon;
 use crate::ui::bridge::model::{self, generate_vault_entries, apply_vault_model, account_to_data, totp_to_data};
-use crate::vault::{format, VaultMode};
+use crate::vault::format::{self, VaultMode};
 use crate::vault::entry::{AccountEntry, TotpEntry};
 use crate::memory::guard::SecureBuffer;
 
@@ -691,6 +693,160 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
 
         password.into()
     });
+
+    // 16b. Save Generator Settings (Debounced Background Thread)
+    // Create a channel for settings updates
+    let (tx, rx) = channel::<(u32, bool, bool, bool, bool)>();
+    let state_saver = state.clone();
+
+    // Spawn the dedicated saver thread
+    thread::spawn(move || {
+        while let Ok(first_msg) = rx.recv() {
+            // We got a request. Wait 500ms to debounce rapid changes (slider drag)
+            thread::sleep(Duration::from_millis(500));
+            
+            // Drain the channel to get the absolute latest value
+            let mut latest = first_msg;
+            while let Ok(newer) = rx.try_recv() {
+                latest = newer;
+            }
+            
+            let (len, u, l, n, s) = latest;
+            
+            // Now save `latest` to disk
+            let (path, key_copy, mode, pass_copy) = {
+                let mut state = state_saver.lock().unwrap();
+                
+                // 1. Update in-memory state (Mutable Borrow)
+                let mode = if let Some(vault) = &mut state.vault {
+                    vault.generator_settings.length = len as i32;
+                    vault.generator_settings.include_uppercase = u;
+                    vault.generator_settings.include_lowercase = l;
+                    vault.generator_settings.include_numbers = n;
+                    vault.generator_settings.include_symbols = s;
+                    vault.sequence_number += 1;
+                    vault.last_updated = chrono::Utc::now();
+                    Some(vault.mode)
+                } else {
+                    None
+                };
+
+                // 2. Extract data for saving (Immutable Borrow, after Mutable Borrow ends)
+                if let Some(m) = mode {
+                    if let (Some(path), Some(key)) = (&state.vault_path, &state.key) {
+                        let k = SecureBuffer::from_slice(&key[..]);
+                        let p = state.password.as_ref().and_then(|pb| SecureBuffer::from_slice(&pb[..]));
+                        (Some(path.clone()), k, m, p)
+                    } else {
+                         (None, None, m, None)
+                    }
+                } else {
+                    (None, None, VaultMode::DeviceBound, None)
+                }
+            };
+
+            if let (Some(p), Some(k)) = (path, key_copy) {
+                 println!("[DEBUG] Persisting generator settings: len={}", len);
+                 // We need to lock again to get reference for save_vault, or we can just update the file.
+                 // Actually save_vault needs &Vault. We updated it in memory above.
+                 // But we dropped the lock. So we should re-lock briefly or clone the vault?
+                 // Cloning the vault is safer for consistency but expensive? 
+                 // Actually, `save_vault` takes &Vault.
+                 // Let's re-acquire lock to save.
+                 let state = state_saver.lock().unwrap();
+                 if let Some(vault) = &state.vault {
+                     if let Err(e) = format::save_vault(&p, vault, &k, mode, pass_copy.as_ref().map(|b| &b[..])) {
+                         eprintln!("[ERROR] Failed to save vault: {:?}", e);
+                     }
+                 }
+            }
+        }
+    });
+
+    // The callback just sends to the channel (non-blocking)
+    app.on_save_generator_settings(move |len, u, l, n, s| {
+        // println!("[DEBUG] Queuing save: len={}", len);
+        let _ = tx.send((len as u32, u, l, n, s));
+    });
+
+    // 16c. Generate Password from Settings (Simple)
+    let state_copy = state.clone();
+    app.on_generate_password_from_settings(move || {
+        use rand::{thread_rng, Rng};
+        let state = state_copy.lock().unwrap();
+        
+        let (len, u, l, n, s) = if let Some(vault) = &state.vault {
+            (
+                vault.generator_settings.length,
+                vault.generator_settings.include_uppercase,
+                vault.generator_settings.include_lowercase,
+                vault.generator_settings.include_numbers,
+                vault.generator_settings.include_symbols
+            )
+        } else {
+            (16, true, true, true, true) // Default
+        };
+
+        let mut charset = String::new();
+        if u { charset.push_str("ABCDEFGHIJKLMNOPQRSTUVWXYZ"); }
+        if l { charset.push_str("abcdefghijklmnopqrstuvwxyz"); }
+        if n { charset.push_str("0123456789"); }
+        if s { charset.push_str("!@#$%^&*()_+-=[]{}|;:,.<>?"); }
+
+        if charset.is_empty() { charset.push_str("abcdefghijklmnopqrstuvwxyz0123456789"); }
+
+        let mut rng = thread_rng();
+        let password: String = (0..len as usize)
+            .map(|_| {
+                let idx = rng.gen_range(0..charset.len());
+                charset.chars().nth(idx).unwrap()
+            })
+            .collect();
+
+        password.into()
+    });
+
+    // 16d. Get Generator Settings
+    let state_copy = state.clone();
+    app.on_get_generator_settings(move || {
+        let state = state_copy.lock().unwrap();
+        if let Some(vault) = &state.vault {
+            let s = &vault.generator_settings;
+            println!("[DEBUG] get_generator_settings: length={}, u={}, l={}, n={}, s={}", s.length, s.include_uppercase, s.include_lowercase, s.include_numbers, s.include_symbols);
+            
+            // Defensive: if length is 0, return defaults
+            if s.length == 0 {
+                println!("[DEBUG] Returning DEFAULTS because length is 0");
+                return GeneratorSettings {
+                    length: 16,
+                    include_uppercase: true,
+                    include_lowercase: true,
+                    include_numbers: true,
+                    include_symbols: true,
+                };
+            }
+
+            return GeneratorSettings {
+                length: s.length,
+                include_uppercase: s.include_uppercase,
+                include_lowercase: s.include_lowercase,
+                include_numbers: s.include_numbers,
+                include_symbols: s.include_symbols,
+            };
+        }
+        
+        println!("[DEBUG] Vault is None, returning defaults");
+        // Default
+        GeneratorSettings {
+            length: 16,
+            include_uppercase: true,
+            include_lowercase: true,
+            include_numbers: true,
+            include_symbols: true,
+        }
+    });
+
+
 
     // 17. Copy to Clipboard
     app.on_copy_to_clipboard(move |text| {

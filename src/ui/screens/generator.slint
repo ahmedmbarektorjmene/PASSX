@@ -1,4 +1,5 @@
 import { Theme } from "../theme.slint";
+import { VaultEntryData, GeneratorSettings } from "../types.slint";
 import {
     PrimaryButton,
     SecondaryButton,
@@ -13,7 +14,11 @@ export component PasswordGeneratorScreen inherits Rectangle {
     callback back();
     callback generate_password(int, bool, bool, bool, bool) -> string;
     callback copy_to_clipboard(string);
+    callback get-generator-settings() -> GeneratorSettings;
+    callback save-generator-settings(int, bool, bool, bool, bool);
     background: Theme.background;
+    
+    // Default values, will be overwritten by init
     property <int> length: 16;
     property <bool> include_uppercase: true;
     property <bool> include_lowercase: true;
@@ -21,7 +26,19 @@ export component PasswordGeneratorScreen inherits Rectangle {
     property <bool> include_symbols: true;
     property <string> generated_password: "";
     init => {
+        let s = root.get-generator-settings();
+        // Defensive: If backend returns 0 (e.g. uninitialized vault), fail safe to defaults
+        if (s.length > 0) {
+            root.length = s.length;
+            root.include_uppercase = s.include_uppercase;
+            root.include_lowercase = s.include_lowercase;
+            root.include_numbers = s.include_numbers;
+            root.include_symbols = s.include_symbols;
+        }
         root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+    }
+    function save() {
+        root.save-generator-settings(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
     }
     VerticalLayout {
         padding: 40px;
@@ -192,11 +209,12 @@ export component PasswordGeneratorScreen inherits Rectangle {
 
                     // Native Slider
                     Slider {
-                        minimum: 4;
+                        minimum: 8;
                         maximum: 128;
                         value: root.length;
                         changed(val) => {
                             root.length = round(val);
+                            root.save();
                             root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
                         }
                     }
@@ -234,6 +252,7 @@ export component PasswordGeneratorScreen inherits Rectangle {
                                 mouse-cursor: pointer;
                                 clicked => {
                                     root.length = 8;
+                                    root.save();
                                     root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
                                 }
                             }
@@ -259,6 +278,7 @@ export component PasswordGeneratorScreen inherits Rectangle {
                                 mouse-cursor: pointer;
                                 clicked => {
                                     root.length = 16;
+                                    root.save();
                                     root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
                                 }
                             }
@@ -284,6 +304,7 @@ export component PasswordGeneratorScreen inherits Rectangle {
                                 mouse-cursor: pointer;
                                 clicked => {
                                     root.length = 32;
+                                    root.save();
                                     root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
                                 }
                             }
@@ -309,6 +330,7 @@ export component PasswordGeneratorScreen inherits Rectangle {
                                 mouse-cursor: pointer;
                                 clicked => {
                                     root.length = 64;
+                                    root.save();
                                     root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
                                 }
                             }
@@ -318,6 +340,32 @@ export component PasswordGeneratorScreen inherits Rectangle {
                                 font-size: 10px;
                                 font-weight: 700;
                                 color: root.length == 64 ? Theme.primary : Theme.text-muted;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        Rectangle {
+                            width: 40px;
+                            height: 26px;
+                            border-radius: 13px;
+                            background: root.length == 128 ? Theme.primary-glow : Theme.surface;
+                            border-width: 1px;
+                            border-color: root.length == 128 ? Theme.primary : Theme.border-subtle;
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.length = 128;
+                                    root.save();
+                                    root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
+                                }
+                            }
+
+                            Text {
+                                text: "128";
+                                font-size: 10px;
+                                font-weight: 700;
+                                color: root.length == 128 ? Theme.primary : Theme.text-muted;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
                             }
@@ -343,6 +391,7 @@ export component PasswordGeneratorScreen inherits Rectangle {
                             mouse-cursor: pointer;
                             clicked => {
                                 root.include_uppercase = !root.include_uppercase;
+                                root.save();
                                 root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
                             }
                         }
@@ -387,6 +436,7 @@ export component PasswordGeneratorScreen inherits Rectangle {
                             mouse-cursor: pointer;
                             clicked => {
                                 root.include_lowercase = !root.include_lowercase;
+                                root.save();
                                 root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
                             }
                         }
@@ -431,6 +481,7 @@ export component PasswordGeneratorScreen inherits Rectangle {
                             mouse-cursor: pointer;
                             clicked => {
                                 root.include_numbers = !root.include_numbers;
+                                root.save();
                                 root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
                             }
                         }
@@ -475,6 +526,7 @@ export component PasswordGeneratorScreen inherits Rectangle {
                             mouse-cursor: pointer;
                             clicked => {
                                 root.include_symbols = !root.include_symbols;
+                                root.save();
                                 root.generated_password = root.generate_password(root.length, root.include_uppercase, root.include_lowercase, root.include_numbers, root.include_symbols);
                             }
                         }
