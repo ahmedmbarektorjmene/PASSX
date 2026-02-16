@@ -230,8 +230,8 @@ export component CreateVaultScreen inherits Rectangle {
                 }
             }
             
-            // Password Section (Portable only)
-            if (root.vault-mode == 2): Card {
+            // Password Section (Required for all modes)
+            Card {
                 title: "MASTER PASSWORD";
                 icon: @image-url("../../../assets/lock.svg");
                 VerticalLayout {
@@ -347,7 +347,7 @@ export component CreateVaultScreen inherits Rectangle {
                 PrimaryButton {
                     text: "Create Vault";
                     width: 160px;
-                    enabled: root.file-path != "" && (root.vault-mode == 1 || (root.password != "" && root.password == root.confirm-password));
+                    enabled: root.file-path != "" && root.password != "" && root.password == root.confirm-password;
                     clicked => {
                         root.create-vault(root.password, root.vault-mode);
                     }

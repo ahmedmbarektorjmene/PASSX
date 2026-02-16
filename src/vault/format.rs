@@ -134,15 +134,29 @@ pub fn save_vault<P: AsRef<Path>>(
     // 2. Wrap the Master Key based on Mode
     let (wrapped_key_blob, wrapper_nonce) = match mode {
         VaultMode::DeviceBound => {
-            // Seal Master Key to TPM
-            let blob = sealing::seal_key(master_key)?;
-            // No nonce needed for TPM seal (it handles probabilistic encryption internally usually, or we don't expose it)
-            // But we need to stick to a format. Let's use empty nonce or random?
-            // Re-using the nonce slot for consistency or just 0s. 
-            // Our format will just store nonce but ignore it for DeviceBound if specific Scheme doesn't need it.
-            // Actually, for simplicity in file format, let's keep a fixed size slot or variable?
-            // Variable is better.
-            (blob, [0u8; NONCE_SIZE]) 
+            let pass = password.ok_or(VaultError::MissingPassword)?;
+            // Derive KEK (Key Encryption Key) from Password
+            let kek = kdf::derive_key(pass, &salt, Argon2ParamsVersion::V1_2024)
+                .map_err(|_| VaultError::CryptoError(cipher::CryptoError::KeyPrecomputationFailed))?;
+            
+            // Encrypt Master Key with KEK
+            // Use "PASSX_DEVICE_BOUND_MASTER_KEY" as AAD to distinguish from Portable
+            let aad = b"PASSX_DEVICE_BOUND_MASTER_KEY";
+            let (ciphertext, nonce, tag) = cipher::encrypt(&kek, &master_key[..], aad)?;
+            
+            // Allow minimal allocation: Ciphertext + Tag
+            let mut key_blob = Vec::with_capacity(ciphertext.len() + TAG_SIZE);
+            key_blob.extend_from_slice(&ciphertext);
+            key_blob.extend_from_slice(&tag);
+            
+            // Seal the ENCRYPTED Master Key to TPM
+            // We need to wrap it in SecureBuffer to pass to seal_key, though it's already encrypted.
+            // But seal_key expects SecureBuffer.
+            let key_blob_secure = SecureBuffer::from_slice(&key_blob).ok_or(VaultError::CryptoError(cipher::CryptoError::KeyPrecomputationFailed))?; // Reuse error
+            let sealed_blob = sealing::seal_key(&key_blob_secure)?;
+
+            // We use the nonce generated during KEK encryption
+            (sealed_blob, nonce) 
         },
         VaultMode::Portable => {
             let pass = password.ok_or(VaultError::MissingPassword)?;
@@ -266,8 +280,25 @@ pub fn load_vault<P: AsRef<Path>>(
     // 2. Unwrap Master Key
     let master_key = match mode {
         VaultMode::DeviceBound => {
-            // Unseal with TPM
-            sealing::unseal_key(wrapped_key)?
+            // Unseal with TPM to get Encrypted Master Key
+            let encrypted_key_blob_mem = sealing::unseal_key(wrapped_key)?;
+            let encrypted_key_blob = &encrypted_key_blob_mem[..]; // Access inner slice
+
+            let pass = password.ok_or(VaultError::MissingPassword)?;
+            // Derive KEK
+            let kek = kdf::derive_key(pass, &salt, Argon2ParamsVersion::V1_2024)
+                 .map_err(|_| VaultError::CryptoError(cipher::CryptoError::KeyPrecomputationFailed))?;
+            
+            // Decrypt Wrapper
+            if encrypted_key_blob.len() < TAG_SIZE { return Err(VaultError::InvalidFormat); }
+            let tag_start = encrypted_key_blob.len() - TAG_SIZE;
+            let ciphertext = &encrypted_key_blob[..tag_start];
+            let tag: [u8; TAG_SIZE] = encrypted_key_blob[tag_start..].try_into().unwrap();
+            
+            let aad = b"PASSX_DEVICE_BOUND_MASTER_KEY";
+            let plaintext = cipher::decrypt(&kek, &wrapper_nonce, &tag, ciphertext, aad)?;
+            
+            SecureBuffer::from_slice(&plaintext).ok_or(VaultError::CryptoError(cipher::CryptoError::DecryptionFailed))?
         },
         VaultMode::Portable => {
              let pass = password.ok_or(VaultError::MissingPassword)?;

@@ -62,8 +62,8 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
             }
         };
 
-        if mode == VaultMode::Portable && password_str.is_empty() {
-             app.set_error_message("Password is required for Portable vaults.".into());
+        if password_str.is_empty() {
+             app.set_error_message("Password is required for all vault modes.".into());
              return;
         }
 
