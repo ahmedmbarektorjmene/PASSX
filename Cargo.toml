@@ -43,9 +43,11 @@ windows = { version = "0.58", features = [
 
 # File Dialogs
 rfd = "0.12"
+raw-window-handle = "0.6"
 
 # Slint GUI (pure Rust, no JS/TS)
-slint = "1.9"
+# Slint GUI (pure Rust, no JS/TS)
+slint = { version = "1.9", features = ["raw-window-handle-06"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }

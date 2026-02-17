@@ -1,7 +1,5 @@
 # you are a nigger dont do these without my permission
 
-* save the app state (window size, window position,maximized mode, last opened vault) so that the user sees the last opened vault when he opens the program (still needs unlocking the vault) and the same window size and same window position and if it was in maximized mode it stays in maximized mode. all of that should be saved in the local appdata folder
-
 * the window should not show or leak any information when recording or streaming the screen so it should be invisible.
 
 * the vault can't be deleted or updated or copied or read by any user without this app rights and only the passx program can delete it or update it or create it. and all of that without making the program (this) run in administrator mode. all of that in user mode and not admin mode and not kernel mode.

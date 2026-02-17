@@ -35,6 +35,56 @@ pub fn run(tpm_available: bool) -> std::result::Result<(), slint::PlatformError>
     if prefs.is_maximized {
         window.set_maximized(true);
     }
+
+    // SECURITY: Prevent Screen Capture (OBS, Discord, Snipping Tool, etc.)
+    // WDA_EXCLUDEFROMCAPTURE (0x00000011) makes the window invisible to capture.
+    #[cfg(target_os = "windows")]
+    {
+        let app_weak_security = app_weak.clone();
+        std::thread::spawn(move || {
+            // Wait for 500ms to ensure the window is mapped by the backend.
+            // "NotSupported" error occurs if we try to get the handle before it's mapped.
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            
+            let _ = slint::invoke_from_event_loop(move || {
+                if let Some(app) = app_weak_security.upgrade() {
+                    let window = app.window();
+                    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+                    
+                    println!(">>> [SECURITY] Attempting to secure window (delayed)...");
+                    
+                    // slint::Window::window_handle() returns slint::WindowHandle struct (not Result)
+                    let slint_handle = window.window_handle();
+                    // Now calling HasWindowHandle::window_handle() on the struct
+                    match slint_handle.window_handle() {
+                        Ok(handle) => {
+                            if let RawWindowHandle::Win32(handle) = handle.as_raw() {
+                                 let hwnd_isize = handle.hwnd.get();
+                                 let hwnd = windows::Win32::Foundation::HWND(hwnd_isize as *mut std::ffi::c_void);
+                                 println!(">>> [SECURITY] Found HWND: {:?} (isize: {})", hwnd, hwnd_isize);
+                                 unsafe {
+                                     let result = windows::Win32::UI::WindowsAndMessaging::SetWindowDisplayAffinity(
+                                         hwnd,
+                                         windows::Win32::UI::WindowsAndMessaging::WDA_EXCLUDEFROMCAPTURE,
+                                     );
+                                     if result.is_err() {
+                                         eprintln!(">>> [SECURITY] Failed to set window display affinity: {:?}", windows::core::Error::from_win32());
+                                     } else {
+                                         println!(">>> [SECURITY] Successfully set window display affinity (WDA_EXCLUDEFROMCAPTURE).");
+                                     }
+                                 };
+                            } else {
+                                eprintln!(">>> [SECURITY] Application is not running on Win32 (unexpected).");
+                            }
+                        },
+                        Err(e) => {
+                            eprintln!(">>> [SECURITY] Failed to get window handle (delayed): {:?}", e);
+                        }
+                    }
+                }
+            });
+        });
+    }
     
     // Propagate TPM status to UI
     app.set_tpm_available(tpm_available);
