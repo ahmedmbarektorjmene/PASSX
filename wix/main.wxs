@@ -56,7 +56,8 @@
     <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
 <?endif ?>
 
-<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
 
     <Product
         Id='*'
@@ -131,6 +132,14 @@
             </Directory>
             <Directory Id="DesktopFolder" Name="Desktop"/>
             <Directory Id="ProgramMenuFolder" Name="Programs"/>
+            <Directory Id="LocalStorageFolder">
+                <Directory Id="AppDataPassXFolder" Name="passx">
+                     <Component Id="CleanupAppData" Guid="*">
+                        <RegistryValue Root="HKCU" Key="Software\passx\Cleanup" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+                        <util:RemoveFolderEx On="uninstall" Property="AppDataPassXFolder" />
+                    </Component>
+                </Directory>
+            </Directory>
         </Directory>
 
         <Feature
@@ -150,6 +159,7 @@
             <ComponentRef Id='License'/>
 
             <ComponentRef Id='binary0'/>
+            <ComponentRef Id='CleanupAppData'/>
 
             <Feature
                 Id='Environment'

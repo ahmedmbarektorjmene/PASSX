@@ -12,15 +12,47 @@ use slint::ComponentHandle;
 use std::sync::{Arc, Mutex};
 use crate::ui::MainWindow;
 use self::state::AppState;
+use crate::ui::prefs::AppPrefs; 
+
 
 pub fn run(tpm_available: bool) -> std::result::Result<(), slint::PlatformError> {
     let app = MainWindow::new()?;
     let app_weak = app.as_weak();
+
+    // Load Preferences
+    let prefs = AppPrefs::load();
+    
+    // Apply Window State (if saved)
+    // Note: Slint window positioning/sizing might need to be done after window is shown or via specific API if available (current version has basic support)
+    // For now we set the window properties if the backend supports it, or use the slint Window API.
+    
+    // Since Slint 1.8+ validates window implementation:
+    let window = app.window();
+    window.set_position(slint::PhysicalPosition::new(prefs.window_x, prefs.window_y));
+    window.set_size(slint::PhysicalSize::new(prefs.window_width, prefs.window_height));
+    
+    // Fullscreen/Maximized
+    if prefs.is_maximized {
+        window.set_maximized(true);
+    }
     
     // Propagate TPM status to UI
     app.set_tpm_available(tpm_available);
     
-    let state = Arc::new(Mutex::new(AppState::new()));
+    let mut state_data = AppState::new();
+    
+    // Restore Last Vault Path if exists
+    if let Some(path) = &prefs.last_vault_path {
+        if path.exists() {
+            state_data.vault_path = Some(path.clone());
+            app.set_vault_path(path.to_string_lossy().to_string().into());
+            // Navigate to Unlock Screen
+            app.set_current_screen(2);
+        }
+    }
+
+    let state = Arc::new(Mutex::new(state_data));
+
 
     // Setup Feature Callbacks
     vault::setup(app_weak.clone(), state.clone());
@@ -78,5 +110,32 @@ pub fn run(tpm_available: bool) -> std::result::Result<(), slint::PlatformError>
         }
     });
 
+    // Save State on Close
+    let state_for_close = state.clone();
+    app.window().on_close_requested(move || {
+        let mut final_prefs = AppPrefs::load(); // Reload to get latest (if modified elsewhere, though single instance guards this)
+        
+        let app_handle = app_weak.unwrap();
+        let win = app_handle.window();
+        let pos = win.position();
+        let size = win.size();
+        
+        final_prefs.window_x = pos.x;
+        final_prefs.window_y = pos.y;
+        final_prefs.window_width = size.width;
+        final_prefs.window_height = size.height;
+        final_prefs.is_maximized = win.is_maximized();
+        
+        // Save last vault from state
+        if let Ok(s) = state_for_close.lock() {
+             final_prefs.last_vault_path = s.vault_path.clone();
+        }
+        
+        final_prefs.save();
+        
+        slint::CloseRequestResponse::HideWindow
+    });
+
     app.run()
+
 }

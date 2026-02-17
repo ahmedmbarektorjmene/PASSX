@@ -1,8 +1,6 @@
 # you are a nigger dont do these without my permission
 
-* add feature to change master password in settings.
-
-* save the app state (window size, window position,fullscreen mode, last opened vault) so that the user sees the last opened vault when he opens the program (still needs unlocking the vault) and the same window size and same window position and if it was in fullscreen mode it stays in fullscreen mode. all of that should be saved in the localLow or local appdata or roaming appdata folder !! i dont which one to pick !! can you tell me which one to pick ?? and each folder advantages ?
+* save the app state (window size, window position,maximized mode, last opened vault) so that the user sees the last opened vault when he opens the program (still needs unlocking the vault) and the same window size and same window position and if it was in maximized mode it stays in maximized mode. all of that should be saved in the local appdata folder
 
 * the window should not show or leak any information when recording or streaming the screen so it should be invisible.
 

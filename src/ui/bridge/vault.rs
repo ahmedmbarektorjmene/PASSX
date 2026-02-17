@@ -6,7 +6,9 @@ use rand::{Rng, thread_rng};
 
 use crate::ui::MainWindow;
 use crate::ui::bridge::state::AppState;
+use crate::ui::prefs::AppPrefs; 
 use crate::ui::bridge::model::{generate_vault_entries, apply_vault_model};
+
 use crate::vault::{format::{self, Vault, VaultMode}};
 use crate::memory::guard::SecureBuffer;
 
@@ -136,6 +138,11 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
                      state.current_search = "".into();
                      state.current_filter = "accounts".into();
                      
+                     // Update Prefs
+                     let mut prefs = AppPrefs::load();
+                     prefs.last_vault_path = state.vault_path.clone();
+                     prefs.save();
+                     
                      app.set_error_message("".into());
                      apply_vault_model(&app, entries);
                      app.set_current_screen(3); 
@@ -195,6 +202,11 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
                             state.password = password_buf;
                             state.current_search = "".into();
                             state.current_filter = "accounts".into();
+                            
+                            // Update Prefs
+                            let mut prefs = AppPrefs::load();
+                            prefs.last_vault_path = state.vault_path.clone();
+                            prefs.save();
                             
                             app.set_error_message("".into());
                             apply_vault_model(&app, entries);

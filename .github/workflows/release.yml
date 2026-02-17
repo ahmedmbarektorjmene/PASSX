@@ -52,7 +52,7 @@ jobs:
           SIGNING_CERT: ${{ secrets.SIGNING_CERT }}
 
       - name: Create MSI Installer
-        run: cargo wix --no-build --nocapture
+        run: cargo wix --no-build --nocapture -e WixUtilExtension
 
       - name: Sign MSI
         run: |
