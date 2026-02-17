@@ -52,7 +52,7 @@ impl VaultMode {
 }
 
 /// Vault structure wrapped in an AEAD envelope.
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Clone)]
 pub struct Vault {
     pub format_version: u32,
     pub mode: VaultMode,

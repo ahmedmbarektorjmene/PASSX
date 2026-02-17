@@ -96,6 +96,7 @@ component MainWindow inherits Window {
     callback export-totps();
     callback import-passwords();
     callback import-totps();
+    callback change-master-password(string, string); // current, new
     in-out property <string> io-status-message: "";
 
     // --- Screen Logic ---
@@ -287,6 +288,9 @@ component MainWindow inherits Window {
         }
         import-totps => {
             root.import-totps();
+        }
+        change-master-password(current, new) => {
+            root.change-master-password(current, new);
         }
     }
 }

@@ -1,5 +1,6 @@
 // Settings Screen — Separate Password and TOTP import/export
 import { Theme } from "../theme.slint";
+import { LineEdit } from "std-widgets.slint";
 import {
     PrimaryButton,
     SecondaryButton,
@@ -14,6 +15,11 @@ export component SettingsScreen inherits Rectangle {
     callback import-passwords();
     callback import-totps();
     in property <string> status-message: "";
+    
+    // Change Password Logic
+    in-out property <bool> show-change-password-modal: false;
+    callback change-master-password(string, string); // current, new
+    
     background: Theme.background;
     VerticalLayout {
         padding: 40px;
@@ -322,6 +328,68 @@ export component SettingsScreen inherits Rectangle {
             }
         }
 
+        // ─── Security Section ───
+        VerticalLayout {
+            spacing: 12px;
+            Text {
+                text: "SECURITY";
+                font-size: 10px;
+                font-weight: 800;
+                color: Theme.text-disabled;
+                letter-spacing: 1.5px;
+            }
+
+            Rectangle {
+                height: 72px;
+                border-radius: Theme.border-radius-lg;
+                background: cp-touch.has-hover ? Theme.surface-hover : Theme.surface;
+                border-width: 1px;
+                border-color: cp-touch.has-hover ? Theme.primary : Theme.border;
+                animate background { duration: 200ms; }
+                animate border-color { duration: 200ms; }
+                cp-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.show-change-password-modal = true;
+                    }
+                }
+
+                HorizontalLayout {
+                    padding: 16px;
+                    spacing: 12px;
+                    Rectangle {
+                        width: 36px;
+                        height: 36px;
+                        border-radius: 10px;
+                        background: Theme.danger-soft;
+                        Image {
+                            source: @image-url("../../../assets/lock.svg");
+                            width: 16px;
+                            height: 16px;
+                            colorize: Theme.danger;
+                        }
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 2px;
+                        Text {
+                            text: "Change Master Password";
+                            font-size: 13px;
+                            font-weight: 700;
+                            color: Theme.text-primary;
+                        }
+
+                        Text {
+                            text: "Update the key used to encrypt your vault";
+                            font-size: 11px;
+                            color: Theme.text-muted;
+                        }
+                    }
+                }
+            }
+        }
+
         // ─── Status Feedback ───
         if (root.status-message != ""): Rectangle {
             height: 40px;
@@ -352,6 +420,127 @@ export component SettingsScreen inherits Rectangle {
         // Spacer
         Rectangle {
             vertical-stretch: 1;
+        }
+    }
+
+    // ─── Change Password Modal ───
+    if (root.show-change-password-modal): Rectangle {
+        background: rgba(0, 0, 0, 0.6);
+        TouchArea {
+            clicked => {
+                // Optional: Close on outside click? Better not to avoid accidental loss.
+                // root.show-change-password-modal = false;
+            }
+        }
+
+        modal-content := Rectangle {
+            width: 420px;
+            height: 400px;
+            background: Theme.surface;
+            border-radius: Theme.border-radius-xl;
+            border-width: 1px;
+            border-color: Theme.border;
+
+            // Internal State for inputs
+            property <string> current-password;
+            property <string> new-password;
+            property <string> confirm-new-password;
+            VerticalLayout {
+                padding: 28px;
+                spacing: 20px;
+                Text {
+                    text: "Change Master Password";
+                    font-size: 18px;
+                    font-weight: 800;
+                    color: Theme.text-primary;
+                    horizontal-alignment: center;
+                }
+
+                VerticalLayout {
+                    spacing: 12px;
+                    VerticalLayout {
+                        spacing: 6px;
+                        Label {
+                            text: "CURRENT PASSWORD";
+                        }
+
+                        LineEdit {
+                            placeholder-text: "Enter current password";
+                            input-type: InputType.password;
+                            font-size: 13px;
+                            edited(t) => {
+                                modal-content.current-password = t;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 1px;
+                        background: Theme.border-subtle;
+                    }
+
+                    VerticalLayout {
+                        spacing: 6px;
+                        Label {
+                            text: "NEW PASSWORD";
+                        }
+
+                        LineEdit {
+                            placeholder-text: "Enter new password";
+                            input-type: InputType.password;
+                            font-size: 13px;
+                            edited(t) => {
+                                modal-content.new-password = t;
+                            }
+                        }
+                    }
+
+                    VerticalLayout {
+                        spacing: 6px;
+                        Label {
+                            text: "CONFIRM NEW PASSWORD";
+                        }
+
+                        LineEdit {
+                            placeholder-text: "Re-enter new password";
+                            input-type: InputType.password;
+                            font-size: 13px;
+                            edited(t) => {
+                                modal-content.confirm-new-password = t;
+                            }
+                        }
+                    }
+                }
+
+                // Error/Success Message for Modal
+                if (modal-content.new-password != "" && modal-content.new-password != modal-content.confirm-new-password): Text {
+                    text: "Passwords do not match";
+                    color: Theme.danger;
+                    font-size: 12px;
+                    horizontal-alignment: center;
+                }
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: center;
+                    SecondaryButton {
+                        text: "Cancel";
+                        width: 120px;
+                        clicked => {
+                            root.show-change-password-modal = false;
+                        }
+                    }
+
+                    PrimaryButton {
+                        text: "Change Password";
+                        width: 160px;
+                        enabled: modal-content.current-password != "" && modal-content.new-password != "" && modal-content.new-password == modal-content.confirm-new-password;
+                        clicked => {
+                            root.change-master-password(modal-content.current-password, modal-content.new-password);
+                            root.show-change-password-modal = false;
+                        }
+                    }
+                }
+            }
         }
     }
 }

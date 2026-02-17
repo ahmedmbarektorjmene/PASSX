@@ -281,3 +281,9 @@ impl<'de> Deserialize<'de> for SecureBuffer {
 
 unsafe impl Send for SecureBuffer {}
 unsafe impl Sync for SecureBuffer {}
+
+impl Clone for SecureBuffer {
+    fn clone(&self) -> Self {
+        Self::from_slice(&self).expect("Failed to allocate secure buffer clone")
+    }
+}

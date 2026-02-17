@@ -227,4 +227,90 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
         
         app.set_current_screen(2); 
     });
+
+    // 6. Change Master Password
+    let app_ref = app_weak.clone();
+    let state_copy = state.clone();
+    app.on_change_master_password(move |old_pass, new_pass| {
+        let app = app_ref.upgrade().unwrap();
+        let state_clone = state_copy.clone();
+        
+        // 1. Verify Old Password (Fast check)
+        {
+             let state = state_clone.lock().unwrap();
+             if let Some(current_pass_buf) = &state.password {
+                 // Compare bytes
+                 let current_pass_str = String::from_utf8_lossy(&current_pass_buf[..]); 
+                 if old_pass != current_pass_str {
+                      app.set_io_status_message("Incorrect current password.".into());
+                      // Clear after 3s
+                      let app_weak = app_ref.clone();
+                      slint::Timer::single_shot(std::time::Duration::from_secs(3), move || {
+                          if let Some(app) = app_weak.upgrade() {
+                              app.set_io_status_message("".into());
+                          }
+                      });
+                      return;
+                 }
+             } else {
+                 if !old_pass.is_empty() {
+                      app.set_io_status_message("No password set or logic error.".into());
+                      return;
+                 }
+             }
+        }
+        
+        // Prepare data for thread
+        let app_weak_for_thread = app_ref.clone();
+        let new_pass_owned = new_pass.to_string(); // Own the string
+
+        // 2. Perform Save (Blocking)
+        thread::spawn(move || {
+            let (path, vault, master_key, mode) = {
+                let state = state_clone.lock().unwrap();
+                if let (Some(p), Some(v), Some(k)) = (&state.vault_path, &state.vault, &state.key) {
+                    (p.clone(), v.clone(), k.clone(), v.mode) // Clone everything to process saving
+                } else {
+                    return;
+                }
+            };
+
+            let pass_bytes = if !new_pass_owned.is_empty() { Some(new_pass_owned.as_bytes()) } else { None };
+
+            if let Err(e) = format::save_vault(&path, &vault, &master_key, mode, pass_bytes) {
+                 let err_msg = format!("Failed to update password: {:?}", e);
+                 let _ = slint::invoke_from_event_loop(move || {
+                     if let Some(app) = app_weak_for_thread.upgrade() {
+                         app.set_io_status_message(err_msg.into());
+                     }
+                 });
+                 return;
+            }
+            
+            // Re-create bytes for state update
+            let password_buf_for_state = if !new_pass_owned.is_empty() { 
+                SecureBuffer::from_slice(new_pass_owned.as_bytes())
+            } else { 
+                None 
+            };
+            
+            // 3. Update State
+             let _ = slint::invoke_from_event_loop(move || {
+                 if let Some(app) = app_weak_for_thread.upgrade() {
+                     let mut state = state_clone.lock().unwrap(); // Use the captured state_clone (Arc)
+                     state.password = password_buf_for_state;
+                     
+                     app.set_io_status_message("Master password updated successfully.".into());
+                     
+                     // Clear message after 3s
+                     let app_weak = app_weak_for_thread.clone();
+                     slint::Timer::single_shot(std::time::Duration::from_secs(3), move || {
+                          if let Some(app) = app_weak.upgrade() {
+                              app.set_io_status_message("".into());
+                          }
+                     });
+                 }
+             });
+        });
+    });
 }

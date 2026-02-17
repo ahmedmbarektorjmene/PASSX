@@ -4,7 +4,7 @@ use chrono::Utc;
 use crate::crypto::random::SecureRandom;
 use hex;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AccountEntry {
     pub id: String,
     pub title: String,
@@ -19,7 +19,7 @@ pub struct AccountEntry {
     pub updated_at: i64,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TotpEntry {
     pub id: String,
     pub issuer: String,
