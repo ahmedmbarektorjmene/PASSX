@@ -5,6 +5,16 @@ use passx::ui;
 use passx::tpm::sealing; // Expose seal_key or better a `tpm::check_availability()` function
 
 fn main() {
+    // Suppress non-fatal DLL loading warning dialogs (0xc000007b)
+    // Must be called before anything else to prevent the error message box
+    // that appears when double-clicking the exe (no console to absorb warnings).
+    #[cfg(windows)]
+    unsafe {
+        use windows::Win32::System::Diagnostics::Debug::SetErrorMode;
+        use windows::Win32::System::Diagnostics::Debug::SEM_FAILCRITICALERRORS;
+        SetErrorMode(SEM_FAILCRITICALERRORS);
+    }
+
     // 0. Anti-Debug Check
     #[cfg(windows)]
     unsafe {
