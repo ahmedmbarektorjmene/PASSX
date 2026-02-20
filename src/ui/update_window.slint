@@ -2,62 +2,47 @@ import { Theme } from "theme.slint";
 import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
 
 export component UpdateWindow inherits Window {
-    title: "Update Available";
-    width: 400px;
-    height: 300px;
+    title: "Update Ready";
+    width: 420px;
+    height: 220px;
     background: Theme.background;
     always-on-top: true;
-    in property <string> new-version: "v1.2.3";
-    in property <string> release-notes: "• New features\n• Bug fixes";
-    callback update-now();
+    in property <string> new-version: "";
+    callback restart-now();
     callback remind-later();
     VerticalBox {
         padding: Theme.padding-md;
         spacing: Theme.padding-md;
         Text {
-            text: "New Version Available!";
+            text: "Update Downloaded!";
             font-size: Theme.font-size-h2;
             color: Theme.text-primary;
             horizontal-alignment: center;
         }
 
         Text {
-            text: "Version: " + root.new-version;
+            text: "Version " + root.new-version + " has been downloaded.\nRestart PASSX to apply the update.";
             font-size: Theme.font-size-body;
-            color: Theme.primary;
+            color: Theme.text-secondary;
             horizontal-alignment: center;
-        }
-
-        Rectangle {
-            background: Theme.surface;
-            border-radius: Theme.border-radius;
-            clip: true;
-            VerticalBox {
-                padding: Theme.padding-sm;
-                Text {
-                    text: root.release-notes;
-                    color: Theme.text-secondary;
-                    font-size: Theme.font-size-small;
-                    wrap: word-wrap;
-                }
-            }
+            wrap: word-wrap;
         }
 
         HorizontalBox {
             alignment: center;
             spacing: Theme.padding-md;
             Button {
-                text: "Remind Me Later";
+                text: "Later";
                 clicked => {
                     root.remind-later();
                 }
             }
 
             Button {
-                text: "Update Now";
+                text: "Restart Now";
                 primary: true;
                 clicked => {
-                    root.update-now();
+                    root.restart-now();
                 }
             }
         }

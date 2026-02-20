@@ -120,44 +120,44 @@ pub fn run(tpm_available: bool) -> std::result::Result<(), slint::PlatformError>
         prefs.save();
     });
 
-    // Update Check (Async)
-    let _app_weak_update = app.as_weak();
+    // Update Check & Auto-Download (Async)
     std::thread::spawn(move || {
-        // Only run update check in RELEASE mode (or if forced)
+        // Only run update check in RELEASE mode
         if !cfg!(debug_assertions) {
             match crate::update::check_for_updates() {
                 Ok(Some(release)) => {
-                    let version = release.version;
-                    let body = release.body.unwrap_or_default();
+                    let version = release.version.clone();
+                    println!("Update available: v{}. Downloading automatically...", version);
                     
-                    let _ = slint::invoke_from_event_loop(move || {
-                        if let Ok(update_win) = crate::ui::UpdateWindow::new() {
-                            update_win.set_new_version(version.into());
-                            update_win.set_release_notes(body.into());
+                    // Auto-download the update in background
+                    match crate::update::update_to_latest() {
+                        Ok(()) => {
+                            println!("Update v{} downloaded successfully.", version);
                             
-                            let update_win_weak = update_win.as_weak();
-                            update_win.on_update_now(move || {
-                                // Trigger update in background to avoid freezing UI
-                                std::thread::spawn(move || {
-                                    if let Err(e) = crate::update::update_to_latest() {
-                                        eprintln!("Update failed: {}", e);
-                                    } else {
-                                        // Update successful, restart/exit
+                            // Show "Restart Required" dialog
+                            let _ = slint::invoke_from_event_loop(move || {
+                                if let Ok(update_win) = crate::ui::UpdateWindow::new() {
+                                    update_win.set_new_version(version.into());
+                                    
+                                    // "Restart Now" — exit so the updated binary takes effect
+                                    update_win.on_restart_now(move || {
                                         std::process::exit(0);
-                                    }
-                                });
-                                // Hide window immediately or show progress? For now hide.
-                                let _ = update_win_weak.upgrade().map(|w| w.hide());
+                                    });
+                                    
+                                    // "Later" — dismiss; update applies on next natural restart
+                                    let update_win_weak = update_win.as_weak();
+                                    update_win.on_remind_later(move || {
+                                        let _ = update_win_weak.upgrade().map(|w| w.hide());
+                                    });
+                                    
+                                    let _ = update_win.show();
+                                }
                             });
-                            
-                            let update_win_weak2 = update_win.as_weak();
-                            update_win.on_remind_later(move || {
-                                let _ = update_win_weak2.upgrade().map(|w| w.hide());
-                            });
-                            
-                            let _ = update_win.show();
                         }
-                    });
+                        Err(e) => {
+                            eprintln!("Auto-update download failed: {}", e);
+                        }
+                    }
                 }
                 Ok(None) => {
                     println!("App is up to date.");
