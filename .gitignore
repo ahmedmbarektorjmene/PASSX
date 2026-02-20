@@ -1,1 +1,4 @@
 /target
+/keys_output/
+*.pfx
+*.pem

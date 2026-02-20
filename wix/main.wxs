@@ -124,8 +124,8 @@
                             DiskId='1'
                             Source='$(var.CargoTargetBinDir)\passx.exe'
                             KeyPath='yes'>
-                            <Shortcut Id="DesktopShortcut" Directory="DesktopFolder" Name="PassX" WorkingDirectory="APPLICATIONFOLDER" Icon="ProductICO" Advertise="yes"/>
-                            <Shortcut Id="ProgramMenuShortcut" Directory="ProgramMenuFolder" Name="PassX" WorkingDirectory="APPLICATIONFOLDER" Icon="ProductICO" Advertise="yes"/>
+                            <Shortcut Id="DesktopShortcut" Directory="DesktopFolder" Name="PassX" WorkingDirectory="APPLICATIONFOLDER" Icon="passx.exe" Advertise="yes"/>
+                            <Shortcut Id="ProgramMenuShortcut" Directory="ProgramMenuFolder" Name="PassX" WorkingDirectory="APPLICATIONFOLDER" Icon="passx.exe" Advertise="yes"/>
                         </File>
                     </Component>
                 </Directory>
@@ -173,7 +173,6 @@
 
         <SetProperty Id='ARPINSTALLLOCATION' Value='[APPLICATIONFOLDER]' After='CostFinalize'/>
 
-        
         <!--
           Uncomment the following `Icon` and `Property` tags to change the product icon.
 
@@ -181,6 +180,7 @@
           Programs control panel for the application.
         -->
         <Icon Id='ProductICO' SourceFile='assets\icons\logo.ico'/>
+        <Icon Id='passx.exe' SourceFile='$(var.CargoTargetBinDir)\passx.exe'/>
         <Property Id='ARPPRODUCTICON' Value='ProductICO' />
 
         

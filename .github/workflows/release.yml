@@ -21,17 +21,28 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
       - name: Install cargo-wix
         run: cargo install cargo-wix
 
       - name: Build Release
         run: cargo build --release
 
+      - name: Sign Executable (Ed25519)
+        run: .\scripts\sign_executable.ps1 "target\release\passx.exe"
+        env:
+          ED25519_SIGNING_KEY: ${{ secrets.ED25519_SIGNING_KEY }}
+
       - name: Setup Certificate
         run: |
           $certDir = Join-Path $env:runner_temp "certs"
           New-Item -ItemType Directory -Force -Path $certDir | Out-Null
           $pfxPath = Join-Path $certDir "signing_cert.pfx"
+
+          $certPassStr = if ($env:CERT_PASSWORD) { $env:CERT_PASSWORD } else { "" }
+          $password = ConvertTo-SecureString -String $certPassStr -Force -AsPlainText
 
           if ($env:SIGNING_CERT) {
               Write-Host "Using provided SIGNING_CERT secret..."
@@ -40,19 +51,19 @@ jobs:
           } else {
               Write-Host "No SIGNING_CERT secret found. Generating Self-Signed Certificate..."
               $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=PassX Self-Signed" -CertStoreLocation "Cert:\CurrentUser\My"
-              $password = ConvertTo-SecureString -String "password" -Force -AsPlainText
               Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $password
           }
 
           # Import to User Store just in case
-          Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation "Cert:\CurrentUser\My" -Password (ConvertTo-SecureString -String "password" -Force -AsPlainText)
+          Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation "Cert:\CurrentUser\My" -Password $password
 
           echo "PFX_PATH=$pfxPath" >> $env:GITHUB_ENV
         env:
           SIGNING_CERT: ${{ secrets.SIGNING_CERT }}
+          CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
 
       - name: Create MSI Installer
-        run: cargo wix --no-build --nocapture -e WixUtilExtension
+        run: cargo wix --no-build --nocapture
 
       - name: Sign MSI
         run: |
@@ -64,11 +75,15 @@ jobs:
           }
           Write-Host "Using Signtool: $signtool"
 
+          $certPassStr = if ($env:CERT_PASSWORD) { $env:CERT_PASSWORD } else { "" }
+
           $files = Get-ChildItem "target\wix\*.msi"
           foreach ($file in $files) {
               Write-Host "Signing $($file.FullName)..."
-              & $signtool sign /f $env:PFX_PATH /p "password" /tr http://timestamp.digicert.com /td sha256 /fd sha256 $file.FullName
+              & $signtool sign /f $env:PFX_PATH /p $certPassStr /tr http://timestamp.digicert.com /td sha256 /fd sha256 $file.FullName
           }
+        env:
+          CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
