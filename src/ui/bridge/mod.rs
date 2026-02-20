@@ -26,9 +26,6 @@ pub fn run(tpm_available: bool) -> std::result::Result<(), slint::PlatformError>
     app.set_theme_mode(prefs.theme_mode.clone().into());
     
     // Apply Window State (if saved)
-    // Note: Slint window positioning/sizing might need to be done after window is shown or via specific API if available (current version has basic support)
-    // For now we set the window properties if the backend supports it, or use the slint Window API.
-    
     // Since Slint 1.8+ validates window implementation:
     let window = app.window();
     window.set_position(slint::PhysicalPosition::new(prefs.window_x, prefs.window_y));

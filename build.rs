@@ -20,7 +20,8 @@ fn main() {
         let mut res = winres::WindowsResource::new();
         // Sets the icon for the executable (Explorer)
         // Requires a .ico file.
-        res.set_icon("assets/logo.ico");
+        res.set_icon("assets/icons/logo.ico");
         res.compile().unwrap();
+        println!("cargo:rerun-if-changed=assets/icons/logo.ico");
     }
 }
