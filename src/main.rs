@@ -3,6 +3,7 @@
 
 use passx::ui;
 use passx::tpm::sealing; // Expose seal_key or better a `tpm::check_availability()` function
+use passx::runtime::integrity;
 
 fn main() {
     // Suppress non-fatal DLL loading warning dialogs (0xc000007b)
@@ -47,16 +48,16 @@ fn main() {
         }
     }
 
-    // // 1. Runtime Integrity Check
-    // match integrity::verify_self_integrity() {
-    //     Ok(true) => {},
-    //     Ok(false) => {
-    //         std::process::exit(1);
-    //     },
-    //     Err(_e) => {
-    //         std::process::exit(1);
-    //     }
-    // }
+    // 1. Runtime Integrity Check
+    match integrity::verify_self_integrity() {
+        Ok(true) => {},
+        Ok(false) => {
+            std::process::exit(1);
+        },
+        Err(_e) => {
+            std::process::exit(1);
+        }
+    }
 
 
     // 2. TPM Requirements Check
