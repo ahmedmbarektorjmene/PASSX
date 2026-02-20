@@ -1,11 +1,13 @@
 import { Theme } from "theme.slint";
+import { Palette } from "std-widgets.slint";
 import { LaunchScreen } from "./screens/launch.slint";
-import { CreateVaultScreen } from "./screens/create_vault.slint";
+
 import { UnlockScreen } from "./screens/unlock.slint";
 import { MainVaultScreen } from "./screens/main_vault.slint";
 import { VaultEntryData, GeneratorSettings } from "types.slint";
 import { PasswordGeneratorScreen } from "./screens/generator.slint";
 import { SettingsScreen } from "./screens/settings.slint";
+import { VaultListScreen } from "./screens/vault_list.slint";
 import { UpdateWindow } from "update_window.slint";
 
 export { VaultEntryData, GeneratorSettings, MainWindow, UpdateWindow }
@@ -19,6 +21,12 @@ component MainWindow inherits Window {
     preferred-height: 720px;
     background: Theme.background;
 
+    // Sync Slint's built-in Palette with our Theme so standard widgets
+    // (LineEdit, ScrollView, etc.) respect light/dark mode
+    init => {
+        Palette.color-scheme = Theme.dark-mode ? ColorScheme.dark : ColorScheme.light;
+    }
+
     // Window resize constraints
     min-width: 800px;
     min-height: 550px;
@@ -26,7 +34,8 @@ component MainWindow inherits Window {
     max-height: 1000px;
 
     // Logic State
-    in-out property <int> current-screen: 0; // 0: Launch, 1: Create, 2: Unlock, 3: Main, 5: Generator, 6: Settings
+    // 0: Launch, 1: Create, 2: Unlock, 3: Main, 5: Generator, 6: Settings, 7: Vault List
+    in-out property <int> current-screen: 0;
     in-out property <string> vault-path: "";
     in-out property <string> error-message: "";
     in-out property <[VaultEntryData]> vault-entries: [];
@@ -99,6 +108,23 @@ component MainWindow inherits Window {
     callback change-master-password(string, string); // current, new
     in-out property <string> io-status-message: "";
 
+    // Vault Management
+    in-out property <[string]> managed-vaults: [];
+    callback refresh-managed-vaults();
+    callback open-managed-vault(string);
+    callback delete-managed-vault(string);
+    callback create-managed-vault(string, string, int);
+
+    // Mirroring
+    in-out property <[string]> vault-mirrors: [];
+    callback add-mirror();
+    callback remove-mirror(int);
+    callback sync-mirrors();
+
+    // Theme
+    in-out property <string> theme-mode <=> Theme.mode;
+    callback save-theme(string);
+
     // --- Screen Logic ---
 
     // 0: Launch
@@ -111,27 +137,15 @@ component MainWindow inherits Window {
             root.current-screen = 1;
         }
         open-existing-vault => {
-            root.error-message = "";
-            root.browse-for-existing-vault();
+            // Hijacked: Go to Vault List
+            root.refresh-managed-vaults();
+            root.current-screen = 7;
         }
     }
 
     // 1: Create
-    if (root.current-screen == 1): CreateVaultScreen {
-        width: 100%;
-        height: 100%;
-        file-path: root.vault-path;
-        tpm-available: root.tpm-available;
-        browse-path => {
-            root.browse-for-new-vault();
-        }
-        create-vault(pw, mode) => {
-            root.create-new-vault-confirmed(pw, mode);
-        }
-        back => {
-            root.current-screen = 0;
-        }
-    }
+    // Removed
+
 
     // 2: Unlock
     if (root.current-screen == 2): UnlockScreen {
@@ -274,6 +288,8 @@ component MainWindow inherits Window {
         width: 100%;
         height: 100%;
         status-message: root.io-status-message;
+        mirrors: root.vault-mirrors; // Bind mirrors
+        
         back => {
             root.current-screen = 3;
         }
@@ -291,6 +307,65 @@ component MainWindow inherits Window {
         }
         change-master-password(current, new) => {
             root.change-master-password(current, new);
+        }
+        add-mirror => {
+            root.add-mirror();
+        }
+        remove-mirror(idx) => {
+            root.remove-mirror(idx);
+        }
+        sync-mirrors => {
+            root.sync-mirrors();
+        }
+        
+        // Theme Wiring
+        current-mode: root.theme-mode;
+        set-mode(m) => {
+            root.theme-mode = m;
+            root.save-theme(m);
+            Palette.color-scheme = Theme.dark-mode ? ColorScheme.dark : ColorScheme.light;
+        }
+    }
+
+    // 7: Vault List
+    if (root.current-screen == 7): VaultListScreen {
+        width: 100%;
+        height: 100%;
+        vaults: root.managed-vaults;
+        back => {
+            root.current-screen = 0;
+        }
+        open-vault(name) => {
+            root.open-managed-vault(name);
+            // open-managed-vault should set vault-path and switch screen to 2 (Unlock) if successful? 
+            // Or we do it here?
+            // The callback can't change properties directly if implemented in Rust.
+            // But usually we trigger rust, rust updates properties.
+            // Rust will set current-screen = 2.
+        }
+        create-new => {
+            root.current-screen = 1; // Wait, we use modal in screen 7 now?
+            // If Create New triggers modal in screen 7, we don't need to change screen?
+            // The callbacks in VaultListScreen: 
+            // create-new -> opens modal (internal)
+            // But create-new was calling root.create-new in MainWindow?
+            // In VaultListScreen: callback create-new(); is used to trigger modal?
+            // Ah, I set root.show-create-modal = true in the VaultListScreen logic itself!
+            // So create-new callback might NOT be needed if handles internally?
+            // But I exposed it.
+            // Let's check VaultListScreen again.
+            // "clicked => { root.show-create-modal = true; ... }"
+            // It does NOT emit create-new() signal.
+            // So I can remove create-new callback from VaultListScreen or ignore it.
+        }
+        create-managed-vault(name, pass, mode) => {
+            root.create-managed-vault(name, pass, mode);
+        }
+        open-external => {
+            root.browse-for-existing-vault();
+        }
+        delete-vault(name) => {
+            root.delete-managed-vault(name);
         }
     }
 }

@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::sync::mpsc::channel;
 use std::time::Duration;
+use std::io::{Seek, SeekFrom};
 use crate::io::clipboard::copy_to_clipboard;
 
 use crate::ui::{MainWindow, VaultEntryData, GeneratorSettings};
@@ -179,7 +180,7 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
         let state_thread = state_clone.clone();
 
         thread::spawn(move || {
-             let (path, key_copy, mode, pass_copy, url_str, id_str) = {
+             let (_path, key_copy, mode, pass_copy, url_str, id_str) = {
                  let mut state = state_thread.lock().unwrap();
                  let AppState { vault, key, vault_path, password: state_pass, .. } = &mut *state;
                  
@@ -229,12 +230,7 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
 
              if let Some(key_buf) = key_copy {
                  let pass_slice = pass_copy.as_ref().map(|p| &p[..]);
-                 let save_result = {
-                     let state = state_thread.lock().unwrap();
-                     if let Some(vault) = &state.vault {
-                         format::save_vault(&path, vault, &key_buf, mode, pass_slice)
-                     } else { Ok(()) }
-                 };
+                 let save_result = save_vault_state(&state_thread, &key_buf, mode, pass_slice);
 
                  // Generate new model
                  let entries = {
@@ -337,14 +333,9 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
                 }
             };
 
-            if let (Some(path), Some(key_buf)) = (path, key_copy) {
+            if let (Some(_path), Some(key_buf)) = (path, key_copy) {
                 let pass_slice = pass_copy.as_ref().map(|p| &p[..]);
-                let _ = {
-                    let state = state_thread.lock().unwrap();
-                    if let Some(vault) = &state.vault {
-                        format::save_vault(&path, vault, &key_buf, mode, pass_slice)
-                    } else { Ok(()) }
-                };
+                let _ = save_vault_state(&state_thread, &key_buf, mode, pass_slice);
 
                 let entries = {
                     let state = state_thread.lock().unwrap();
@@ -396,14 +387,9 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
                 }
             };
 
-            if let (Some(path), Some(key_buf)) = (path, key_copy) {
+            if let (Some(_path), Some(key_buf)) = (path, key_copy) {
                 let pass_slice = pass_copy.as_ref().map(|p| &p[..]);
-                let _ = {
-                    let state = state_thread.lock().unwrap();
-                    if let Some(vault) = &state.vault {
-                        format::save_vault(&path, vault, &key_buf, mode, pass_slice)
-                    } else { Ok(()) }
-                };
+                let _ = save_vault_state(&state_thread, &key_buf, mode, pass_slice);
 
                 let entries = {
                     let state = state_thread.lock().unwrap();
@@ -515,7 +501,7 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
         let state_thread = state_clone.clone();
 
         thread::spawn(move || {
-             let (path, key_copy, mode, pass_copy, entries) = {
+             let (_path, key_copy, mode, pass_copy, entries) = {
                  let mut state = state_thread.lock().unwrap();
                  
                  let search = state.current_search.clone();
@@ -582,9 +568,9 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
 
              // Save to disk
              if let Some(key_buf) = key_copy {
-                 let state = state_thread.lock().unwrap();
-                 if let Some(vault) = &state.vault {
-                     let _ = format::save_vault(&path, vault, &key_buf, mode, pass_copy.as_ref().map(|b| &b[..]));
+                 let pass_slice = pass_copy.as_ref().map(|b| &b[..]);
+                 if let Err(e) = save_vault_state(&state_thread, &key_buf, mode, pass_slice) {
+                     eprintln!("[ERROR] Failed to save vault: {}", e);
                  }
              }
 
@@ -612,7 +598,7 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
         let state_thread = state_link.clone();
         
         thread::spawn(move || {
-             let (path, key_copy, mode, pass_copy, entries) = {
+             let (_path, key_copy, mode, pass_copy, entries) = {
                  let mut state = state_thread.lock().unwrap();
                  let search = state.current_search.clone();
                  let filter = state.current_filter.clone();
@@ -641,9 +627,9 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
              };
              
               if let Some(key_buf) = key_copy {
-                 let state = state_thread.lock().unwrap();
-                 if let Some(vault) = &state.vault {
-                     let _ = format::save_vault(&path, vault, &key_buf, mode, pass_copy.as_ref().map(|b| &b[..]));
+                 let pass_slice = pass_copy.as_ref().map(|b| &b[..]);
+                 if let Err(e) = save_vault_state(&state_thread, &key_buf, mode, pass_slice) {
+                     eprintln!("[ERROR] Failed to save vault: {}", e);
                  }
              }
 
@@ -668,7 +654,7 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
         let state_thread = state_unlink.clone();
 
         thread::spawn(move || {
-             let (path, key_copy, mode, pass_copy, entries) = {
+             let (_path, key_copy, mode, pass_copy, entries) = {
                  let mut state = state_thread.lock().unwrap();
                  let search = state.current_search.clone();
                  let filter = state.current_filter.clone();
@@ -701,9 +687,9 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
              };
              
               if let Some(key_buf) = key_copy {
-                 let state = state_thread.lock().unwrap();
-                 if let Some(vault) = &state.vault {
-                     let _ = format::save_vault(&path, vault, &key_buf, mode, pass_copy.as_ref().map(|b| &b[..]));
+                 let pass_slice = pass_copy.as_ref().map(|b| &b[..]);
+                 if let Err(e) = save_vault_state(&state_thread, &key_buf, mode, pass_slice) {
+                     eprintln!("[ERROR] Failed to save vault: {}", e);
                  }
              }
 
@@ -792,7 +778,7 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
             let (len, u, l, n, s) = latest;
             
             // Now save `latest` to disk
-            let (path, key_copy, mode, pass_copy) = {
+            let (mut file_opt, key_copy, mode, pass_copy, path) = {
                 let mut state = state_saver.lock().unwrap();
                 
                 // 1. Update in-memory state (Mutable Borrow)
@@ -809,32 +795,56 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
                     None
                 };
 
-                // 2. Extract data for saving (Immutable Borrow, after Mutable Borrow ends)
+                // 2. Extract data for saving
                 if let Some(m) = mode {
                     if let (Some(path), Some(key)) = (&state.vault_path, &state.key) {
                         let k = SecureBuffer::from_slice(&key[..]);
                         let p = state.password.as_ref().and_then(|pb| SecureBuffer::from_slice(&pb[..]));
-                        (Some(path.clone()), k, m, p)
+                        let path_cloned = path.clone();
+                        let f = state.vault_file.take(); // Take exclusive handle
+                        (f, k, m, p, Some(path_cloned))
                     } else {
-                         (None, None, m, None)
+                         (None, None, m, None, None)
                     }
                 } else {
-                    (None, None, VaultMode::DeviceBound, None)
+                    (None, None, VaultMode::DeviceBound, None, None)
                 }
             };
 
-            if let (Some(p), Some(k)) = (path, key_copy) {
+            if let Some(k) = key_copy {
                  println!("[DEBUG] Persisting generator settings: len={}", len);
-                 // We need to lock again to get reference for save_vault, or we can just update the file.
-                 // Actually save_vault needs &Vault. We updated it in memory above.
-                 // But we dropped the lock. So we should re-lock briefly or clone the vault?
-                 // Cloning the vault is safer for consistency but expensive? 
-                 // Actually, `save_vault` takes &Vault.
-                 // Let's re-acquire lock to save.
                  let state = state_saver.lock().unwrap();
                  if let Some(vault) = &state.vault {
-                     if let Err(e) = format::save_vault(&p, vault, &k, mode, pass_copy.as_ref().map(|b| &b[..])) {
-                         eprintln!("[ERROR] Failed to save vault: {:?}", e);
+                     let pass_slice = pass_copy.as_ref().map(|b| &b[..]);
+                     // Try writing through the exclusive file handle first
+                     let res = if let Some(file) = file_opt.as_mut() {
+                         if let Err(e) = file.seek(SeekFrom::Start(0)) {
+                             Err(format!("Seek failed: {}", e))
+                         } else if let Err(e) = file.set_len(0) {
+                             Err(format!("Truncate failed: {}", e))
+                         } else {
+                             format::save_vault_to_writer(file, vault, &k, mode, pass_slice)
+                                 .map_err(|e| format!("{:?}", e))
+                         }
+                     } else if let Some(p) = &path {
+                         // Fallback: no file handle (e.g. older vault path)
+                         format::save_vault(p, vault, &k, mode, pass_slice)
+                             .map_err(|e| format!("{:?}", e))
+                     } else {
+                         Err("No file handle or path".to_string())
+                     };
+
+                     if let Err(e) = res {
+                         eprintln!("[ERROR] Failed to save vault: {}", e);
+                     }
+                 }
+                 drop(state); // Drop lock before restoring handle
+                 
+                 // Restore the file handle to state
+                 if let Some(f) = file_opt {
+                     let mut state = state_saver.lock().unwrap();
+                     if state.vault.is_some() {
+                         state.vault_file = Some(f);
                      }
                  }
             }
@@ -1083,6 +1093,36 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
         });
     });
 
+    // ─── Helper: Save vault through exclusive file handle ───
+    // On Windows, the vault file is held with FILE_SHARE_NONE, so File::create()
+    // would silently fail. We must use the existing file handle.
+    fn save_vault_state(
+        state: &Arc<Mutex<AppState>>,
+        key: &SecureBuffer,
+        mode: VaultMode,
+        pass: Option<&[u8]>,
+    ) -> Result<(), String> {
+        let mut st = state.lock().unwrap();
+        
+        // Check if vault file handle exists first
+        if st.vault_file.is_some() {
+            // Clone vault for serialization, then mutably borrow file
+            let vault = st.vault.clone().ok_or("No vault loaded")?;
+            let file = st.vault_file.as_mut().unwrap();
+            file.seek(SeekFrom::Start(0)).map_err(|e| format!("Seek failed: {}", e))?;
+            file.set_len(0).map_err(|e| format!("Truncate failed: {}", e))?;
+            format::save_vault_to_writer(file, &vault, key, mode, pass)
+                .map_err(|e| format!("{:?}", e))
+        } else if let (Some(vault), Some(path)) = (&st.vault, &st.vault_path) {
+            // Fallback: no exclusive handle
+            let path = path.clone();
+            format::save_vault(&path, vault, key, mode, pass)
+                .map_err(|e| format!("{:?}", e))
+        } else {
+            Err("No vault or path".to_string())
+        }
+    }
+
     // ─── Helper: shared import logic ───
     fn do_import_accounts(
         state_thread: Arc<Mutex<AppState>>,
@@ -1155,15 +1195,10 @@ pub fn setup(app_weak: Weak<MainWindow>, state: Arc<Mutex<AppState>>) {
         added_count: usize,
         label: &'static str,
     ) {
-        if let Some((path, key_copy, mode, pass_copy)) = save_data {
+        if let Some((_path, key_copy, mode, pass_copy)) = save_data {
             if let Some(key_buf) = key_copy {
                 let pass_slice = pass_copy.as_ref().map(|p| &p[..]);
-                let save_result = {
-                    let state = state_thread.lock().unwrap();
-                    if let Some(vault) = &state.vault {
-                        format::save_vault(&path, vault, &key_buf, mode, pass_slice)
-                    } else { Ok(()) }
-                };
+                let save_result = save_vault_state(&state_thread, &key_buf, mode, pass_slice);
                 let entries = {
                     let state = state_thread.lock().unwrap();
                     if let Some(vault) = &state.vault {

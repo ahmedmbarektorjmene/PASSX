@@ -22,6 +22,9 @@ pub fn run(tpm_available: bool) -> std::result::Result<(), slint::PlatformError>
     // Load Preferences
     let prefs = AppPrefs::load();
     
+    // Apply saved theme mode
+    app.set_theme_mode(prefs.theme_mode.clone().into());
+    
     // Apply Window State (if saved)
     // Note: Slint window positioning/sizing might need to be done after window is shown or via specific API if available (current version has basic support)
     // For now we set the window properties if the backend supports it, or use the slint Window API.
@@ -109,6 +112,14 @@ pub fn run(tpm_available: bool) -> std::result::Result<(), slint::PlatformError>
     entries::setup(app_weak.clone(), state.clone());
     search::setup(app_weak.clone(), state.clone());
 
+    // Wire save-theme callback to persist theme mode to config.json
+    app.on_save_theme(move |mode| {
+        let mode_str: String = mode.into();
+        let mut prefs = AppPrefs::load();
+        prefs.theme_mode = mode_str;
+        prefs.save();
+    });
+
     // Update Check (Async)
     let _app_weak_update = app.as_weak();
     std::thread::spawn(move || {
@@ -180,6 +191,9 @@ pub fn run(tpm_available: bool) -> std::result::Result<(), slint::PlatformError>
         if let Ok(s) = state_for_close.lock() {
              final_prefs.last_vault_path = s.vault_path.clone();
         }
+
+        // Save current theme mode
+        final_prefs.theme_mode = app_handle.get_theme_mode().to_string();
         
         final_prefs.save();
         

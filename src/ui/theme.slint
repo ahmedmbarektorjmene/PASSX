@@ -1,36 +1,40 @@
 export global Theme {
     // --- Palette (Slate/Blue Premium Dark) ---
-    in-out property <color> background: #0F1115;       // Near black, deep depth
-    in-out property <color> background-alt: #0A0C0F;   // Even deeper for contrast panels
-    in-out property <color> surface: #1C1F26;          // Layer 1 components
-    in-out property <color> surface-subtle: #252932;   // Layer 2 components / separators
-    in-out property <color> surface-hover: #2D333D;    // Interactive highlight
-    in-out property <color> surface-elevated: #1E222A; // Cards with slight lift
+    // --- Mode ---
+    in-out property <string> mode: "system"; // "light", "dark", "system"
+    in-out property <bool> system-is-dark: true; // Default to dark until detected
+    out property <bool> dark-mode: root.mode == "dark" || (root.mode == "system" && root.system-is-dark);
+
+    // --- Dynamic Palette ---
+    in-out property <color> background: root.dark-mode ? #0F1115 : #F8FAFC;
+    in-out property <color> background-alt: root.dark-mode ? #0A0C0F : #F1F5F9;
+    in-out property <color> surface: root.dark-mode ? #1C1F26 : #FFFFFF;
+    in-out property <color> surface-subtle: root.dark-mode ? #252932 : #F1F5F9;
+    in-out property <color> surface-hover: root.dark-mode ? #2D333D : #E2E8F0;
+    in-out property <color> surface-elevated: root.dark-mode ? #1E222A : #FFFFFF;
+    in-out property <color> primary: root.dark-mode ? #3B82F6 : #2563EB;
+    in-out property <color> primary-deep: root.dark-mode ? #2563EB : #1D4ED8;
+    in-out property <color> primary-soft: root.dark-mode ? #1D4ED8 : #DBEAFE;
+    in-out property <color> primary-glow: root.dark-mode ? rgba(59, 130, 246, 0.15) : rgba(37, 99, 235, 0.1);
+    in-out property <color> primary-glow-strong: root.dark-mode ? rgba(59, 130, 246, 0.25) : rgba(37, 99, 235, 0.2);
+    in-out property <color> accent: #8B5CF6;
+    in-out property <color> accent-glow: root.dark-mode ? rgba(139, 92, 246, 0.12) : rgba(139, 92, 246, 0.1);
+    in-out property <color> danger: #EF4444;
+    in-out property <color> danger-soft: root.dark-mode ? rgba(239, 68, 68, 0.12) : rgba(254, 226, 226, 0.5);
+    in-out property <color> success: #10B981;
+    in-out property <color> success-soft: root.dark-mode ? rgba(16, 185, 129, 0.12) : rgba(209, 250, 229, 0.5);
+    in-out property <color> warning: #F59E0B;
+    in-out property <color> warning-soft: root.dark-mode ? rgba(245, 158, 11, 0.12) : rgba(254, 243, 199, 0.5);
+    in-out property <color> text-primary: root.dark-mode ? #F8FAFC : #0F172A;
+    in-out property <color> text-secondary: root.dark-mode ? #94A3B8 : #475569;
+    in-out property <color> text-muted: #64748B;
+    in-out property <color> text-disabled: root.dark-mode ? #475569 : #94A3B8;
+    in-out property <color> border: root.dark-mode ? #2E333D : #E2E8F0;
+    in-out property <color> border-bright: root.dark-mode ? #3F444E : #CBD5E1;
+    in-out property <color> border-subtle: root.dark-mode ? #222730 : #F1F5F9;
     
-    in-out property <color> primary: #3B82F6;          // Modern Vibrant Blue
-    in-out property <color> primary-deep: #2563EB;     // Foundation blue
-    in-out property <color> primary-soft: #1D4ED8;     // Muted pressed state
-    in-out property <color> primary-glow: rgba(59, 130, 246, 0.15);
-    in-out property <color> primary-glow-strong: rgba(59, 130, 246, 0.25);
-    in-out property <color> accent: #8B5CF6;           // Purple accent for variety
-    in-out property <color> accent-glow: rgba(139, 92, 246, 0.12);
-    in-out property <color> danger: #EF4444;           // Modern Red
-    in-out property <color> danger-soft: rgba(239, 68, 68, 0.12);
-    in-out property <color> success: #10B981;          // Modern Emerald
-    in-out property <color> success-soft: rgba(16, 185, 129, 0.12);
-    in-out property <color> warning: #F59E0B;          // Modern Amber
-    in-out property <color> warning-soft: rgba(245, 158, 11, 0.12);
-    in-out property <color> text-primary: #F8FAFC;     // Crisp off-white
-    in-out property <color> text-secondary: #94A3B8;   // Slate gray text
-    in-out property <color> text-muted: #64748B;       // Muted slate
-    in-out property <color> text-disabled: #475569;    // Disabled text
-    
-    in-out property <color> border: #2E333D;           // Soft sharp border
-    in-out property <color> border-bright: #3F444E;    // Focused border
-    in-out property <color> border-subtle: #222730;    // Very subtle separator
-    
-    // Shadow simulation via layered borders
-    in-out property <color> shadow-color: rgba(0, 0, 0, 0.3);
+    // Shadow simulation
+    in-out property <color> shadow-color: root.dark-mode ? rgba(0, 0, 0, 0.3) : rgba(0, 0, 0, 0.05);
     
     // --- Metrics ---
     in-out property <length> border-radius: 8px;

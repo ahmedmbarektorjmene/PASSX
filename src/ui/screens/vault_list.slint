@@ -1,0 +1,358 @@
+import { Theme } from "../theme.slint";
+import { PrimaryButton, SecondaryButton, Divider } from "../components.slint";
+import { ScrollView, LineEdit } from "std-widgets.slint";
+
+export component VaultListScreen inherits Rectangle {
+    in property <[string]> vaults: [];
+    in property <bool> tpm-available: true;
+    callback open-vault(string);
+    callback create-new(); // Triggers modal
+    callback create-managed-vault(string, string, int); // name, password, mode
+    callback open-external();
+    callback delete-vault(string);
+    
+    // Modal State
+    in-out property <bool> show-create-modal: false;
+    property <string> new-vault-name: "";
+    property <string> new-vault-password: "";
+    property <string> new-vault-confirm: "";
+    property <int> new-vault-mode: root.tpm-available ? 1 : 2;
+    background: Theme.background;
+    VerticalLayout {
+        padding: 40px;
+        spacing: 24px;
+
+        // Header
+        HorizontalLayout {
+            spacing: 14px;
+            alignment: start;
+
+            // Back button (optional, maybe not needed if this replaces Launch flow?)
+            // Or "Back" goes to Launch?
+            // "Open Vault" behavior: Launch -> VaultList. 
+            // So Back goes to Launch.
+            Rectangle {
+                width: 38px;
+                height: 38px;
+                border-radius: Theme.border-radius;
+                background: back-touch.has-hover ? Theme.surface-hover : Theme.surface;
+                border-width: 1px;
+                border-color: Theme.border;
+                animate background { duration: 200ms; }
+                back-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.back();
+                    }
+                }
+
+                Text {
+                    text: "←";
+                    font-size: 16px;
+                    color: Theme.text-secondary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 2px;
+                Text {
+                    text: "My Vaults";
+                    font-size: Theme.font-size-h1;
+                    font-weight: 800;
+                    color: Theme.text-primary;
+                }
+            }
+        }
+
+        Divider { }
+
+        // List
+        ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                spacing: 12px;
+                alignment: start;
+                for vault-name in root.vaults: Rectangle {
+                    height: 60px;
+                    border-radius: Theme.border-radius;
+                    background: vault-touch.has-hover ? Theme.surface-hover : Theme.surface;
+                    border-width: 1px;
+                    border-color: Theme.border;
+                    animate background { duration: 200ms; }
+                    vault-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.open-vault(vault-name);
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        spacing: 12px;
+                        alignment: center;
+                        Rectangle {
+                            width: 32px;
+                            height: 32px;
+                            border-radius: 8px;
+                            background: Theme.primary-glow;
+                            Image {
+                                source: @image-url("../../../assets/vault.svg");
+                                width: 16px;
+                                height: 16px;
+                                colorize: Theme.primary;
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            horizontal-stretch: 1;
+                            Text {
+                                text: vault-name;
+                                font-size: 14px;
+                                font-weight: 600;
+                                color: Theme.text-primary;
+                            }
+
+                            Text {
+                                text: "Managed Vault";
+                                font-size: 11px;
+                                color: Theme.text-muted;
+                            }
+                        }
+                        
+                        // Delete Button
+                        Rectangle {
+                            width: 32px;
+                            height: 32px;
+                            border-radius: 6px;
+                            background: del-touch.has-hover ? Theme.danger-soft : transparent;
+                            del-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.delete-vault(vault-name);
+                                }
+                            }
+
+                            Image {
+                                source: @image-url("../../../assets/trash.svg");
+                                width: 14px;
+                                height: 14px;
+                                colorize: del-touch.has-hover ? Theme.danger : Theme.text-muted;
+                            }
+                        }
+                    }
+                }
+                if (root.vaults.length == 0): Text {
+                    text: "No managed vaults found.";
+                    color: Theme.text-muted;
+                    horizontal-alignment: center;
+                    font-size: 13px;
+                }
+            }
+        }
+
+        // Footer Actions
+        HorizontalLayout {
+            spacing: 12px;
+            alignment: center;
+            SecondaryButton {
+                text: "Open External File...";
+                clicked => {
+                    root.open-external();
+                }
+            }
+
+            PrimaryButton {
+                text: "Create New Vault";
+                clicked => {
+                    root.show-create-modal = true;
+                    // Reset fields
+                    root.new-vault-name = "";
+                    root.new-vault-password = "";
+                    root.new-vault-confirm = "";
+                    root.new-vault-mode = root.tpm-available ? 1 : 2;
+                }
+            }
+        }
+    }
+    
+    // Explicit back callback
+    callback back();
+
+    // ─── Create Vault Modal ───
+    if (root.show-create-modal): Rectangle {
+        background: rgba(0, 0, 0, 0.6);
+        TouchArea {
+            clicked => { /* Block clicks */ }
+        }
+
+        modal-content := Rectangle {
+            width: 480px;
+            height: 520px;
+            background: Theme.surface;
+            border-radius: Theme.border-radius-xl;
+            border-width: 1px;
+            border-color: Theme.border;
+            VerticalLayout {
+                padding: 28px;
+                spacing: 20px;
+                Text {
+                    text: "Create Managed Vault";
+                    font-size: 18px;
+                    font-weight: 800;
+                    color: Theme.text-primary;
+                    horizontal-alignment: center;
+                }
+
+                // Name
+                VerticalLayout {
+                    spacing: 6px;
+                    Text {
+                        text: "VAULT NAME";
+                        font-size: 10px;
+                        color: Theme.text-secondary;
+                        font-weight: 700;
+                    }
+
+                    LineEdit {
+                        placeholder-text: "e.g., Personal, Work (Alphanumeric only)";
+                        font-size: 13px;
+                        edited(t) => {
+                            root.new-vault-name = t;
+                        }
+                    }
+                }
+
+                // Password
+                VerticalLayout {
+                    spacing: 6px;
+                    Text {
+                        text: "MASTER PASSWORD";
+                        font-size: 10px;
+                        color: Theme.text-secondary;
+                        font-weight: 700;
+                    }
+
+                    LineEdit {
+                        placeholder-text: "Enter a strong password";
+                        input-type: InputType.password;
+                        font-size: 13px;
+                        edited(t) => {
+                            root.new-vault-password = t;
+                        }
+                    }
+
+                    LineEdit {
+                        placeholder-text: "Confirm password";
+                        input-type: InputType.password;
+                        font-size: 13px;
+                        edited(t) => {
+                            root.new-vault-confirm = t;
+                        }
+                    }
+                }
+
+                // Mode
+                VerticalLayout {
+                    spacing: 6px;
+                    Text {
+                        text: "SECURITY MODE";
+                        font-size: 10px;
+                        color: Theme.text-secondary;
+                        font-weight: 700;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 12px;
+                        // Device Bound
+                        Rectangle {
+                            height: 60px;
+                            horizontal-stretch: 1;
+                            background: (root.new-vault-mode == 1) ? Theme.primary-glow : Theme.surface;
+                            border-width: 1px;
+                            border-color: (root.new-vault-mode == 1) ? Theme.primary : Theme.border;
+                            border-radius: Theme.border-radius;
+                            TouchArea {
+                                enabled: root.tpm-available;
+                                clicked => {
+                                    root.new-vault-mode = 1;
+                                }
+                            }
+
+                            HorizontalLayout {
+                                alignment: center;
+                                spacing: 8px;
+                                Text {
+                                    text: "Device Bound";
+                                    color: (root.new-vault-mode == 1) ? Theme.primary : Theme.text-secondary;
+                                    vertical-alignment: center;
+                                    font-weight: 600;
+                                }
+                            }
+                        }
+                        // Portable
+                        Rectangle {
+                            height: 60px;
+                            horizontal-stretch: 1;
+                            background: (root.new-vault-mode == 2) ? Theme.accent-glow : Theme.surface;
+                            border-width: 1px;
+                            border-color: (root.new-vault-mode == 2) ? Theme.accent : Theme.border;
+                            border-radius: Theme.border-radius;
+                            TouchArea {
+                                clicked => {
+                                    root.new-vault-mode = 2;
+                                }
+                            }
+
+                            HorizontalLayout {
+                                alignment: center;
+                                spacing: 8px;
+                                Text {
+                                    text: "Portable";
+                                    color: (root.new-vault-mode == 2) ? Theme.accent : Theme.text-secondary;
+                                    vertical-alignment: center;
+                                    font-weight: 600;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!root.tpm-available): Text {
+                        text: "TPM not available. Device Bound mode disabled.";
+                        font-size: 10px;
+                        color: Theme.text-muted;
+                    }
+                }
+
+                // Actions
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: 12px;
+                    SecondaryButton {
+                        text: "Cancel";
+                        width: 100px;
+                        clicked => {
+                            root.show-create-modal = false;
+                        }
+                    }
+
+                    PrimaryButton {
+                        text: "Create";
+                        width: 120px;
+                        enabled: root.new-vault-name != "" && root.new-vault-password != "" && root.new-vault-password == root.new-vault-confirm;
+                        clicked => {
+                            root.create-managed-vault(root.new-vault-name, root.new-vault-password, root.new-vault-mode);
+                            root.show-create-modal = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // Map the back button touch area to this callback
+    // (I can't refer to inner element easily without id, let's fix indentation/structure)
+}

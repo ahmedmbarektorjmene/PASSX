@@ -99,15 +99,7 @@ export component LaunchScreen inherits Rectangle {
                 spacing: 12px;
                 width: 360px;
                 PrimaryButton {
-                    text: "+  Create New Vault";
-                    height: 52px;
-                    clicked => {
-                        root.create-new-vault();
-                    }
-                }
-
-                SecondaryButton {
-                    text: "Open Existing Vault";
+                    text: "Open Vault";
                     height: 52px;
                     clicked => {
                         root.open-existing-vault();

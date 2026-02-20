@@ -60,6 +60,7 @@ pub struct Vault {
     pub last_updated: DateTime<Utc>,
     pub accounts: Vec<AccountEntry>,
     pub totps: Vec<TotpEntry>,
+    pub mirrors: Vec<String>,
     pub generator_settings: GeneratorSettings,
 }
 
@@ -119,8 +120,24 @@ impl From<sealing::TpmError> for VaultError {
 /// 
 /// - `master_key`: The raw 32-byte encryption key for the vault.
 /// - `password`: Required ONLY if mode is Portable. Used to wrap the master_key.
+/// Save the vault to a file.
+/// 
+/// - `master_key`: The raw 32-byte encryption key for the vault.
+/// - `password`: Required ONLY if mode is Portable. Used to wrap the master_key.
 pub fn save_vault<P: AsRef<Path>>(
     path: P, 
+    vault: &Vault, 
+    master_key: &SecureBuffer, 
+    mode: VaultMode,
+    password: Option<&[u8]>
+) -> Result<(), VaultError> {
+    let mut file = File::create(path)?;
+    save_vault_to_writer(&mut file, vault, master_key, mode, password)
+}
+
+/// Save the vault to a generic writer.
+pub fn save_vault_to_writer<W: Write>(
+    writer: &mut W,
     vault: &Vault, 
     master_key: &SecureBuffer, 
     mode: VaultMode,
@@ -214,22 +231,21 @@ pub fn save_vault<P: AsRef<Path>>(
     // So: Content Ciphertext (M)
     // Content Tag (16)
 
-    let mut file = File::create(path)?;
-    file.write_all(MAGIC)?;
-    file.write_all(&FORMAT_VERSION.to_le_bytes())?;
-    file.write_all(&[mode as u8])?;
-    file.write_all(&[kdf_version])?;
-    file.write_all(&salt)?;
-    file.write_all(&wrapper_nonce)?;
+    writer.write_all(MAGIC)?;
+    writer.write_all(&FORMAT_VERSION.to_le_bytes())?;
+    writer.write_all(&[mode as u8])?;
+    writer.write_all(&[kdf_version])?;
+    writer.write_all(&salt)?;
+    writer.write_all(&wrapper_nonce)?;
     
     let wrapped_key_len = wrapped_key_blob.len() as u32;
-    file.write_all(&wrapped_key_len.to_le_bytes())?;
-    file.write_all(&wrapped_key_blob)?;
+    writer.write_all(&wrapped_key_len.to_le_bytes())?;
+    writer.write_all(&wrapped_key_blob)?;
     
-    file.write_all(&vault.sequence_number.to_le_bytes())?;
-    file.write_all(&content_nonce)?;
-    file.write_all(&content_ciphertext)?;
-    file.write_all(&content_tag)?; // Tag at end usually
+    writer.write_all(&vault.sequence_number.to_le_bytes())?;
+    writer.write_all(&content_nonce)?;
+    writer.write_all(&content_ciphertext)?;
+    writer.write_all(&content_tag)?; // Tag at end usually
 
     Ok(())
 }
@@ -237,14 +253,25 @@ pub fn save_vault<P: AsRef<Path>>(
 /// Load the vault from a file.
 /// 
 /// - `password`: Optional. Required if vault is Portable.
+/// Load the vault from a file.
+/// 
+/// - `password`: Optional. Required if vault is Portable.
 pub fn load_vault<P: AsRef<Path>>(
     path: P, 
     password: Option<&[u8]>
 ) -> Result<(Vault, SecureBuffer, VaultMode), VaultError> {
-    
     let mut file = File::open(path)?;
+    load_vault_from_reader(&mut file, password)
+}
+
+/// Load the vault from a generic reader.
+pub fn load_vault_from_reader<R: Read>(
+    reader: &mut R,
+    password: Option<&[u8]>
+) -> Result<(Vault, SecureBuffer, VaultMode), VaultError> {
+    
     let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer)?;
+    reader.read_to_end(&mut buffer)?;
     
     // 1. Basic Header Parsing
     if buffer.len() < 6 + 4 + 1 + 1 + SALT_LEN + NONCE_SIZE + 4 {

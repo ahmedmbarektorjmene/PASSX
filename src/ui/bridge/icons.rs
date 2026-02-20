@@ -21,7 +21,7 @@ pub fn fetch_website_icon(url: String, id: String, app_weak: slint::Weak<MainWin
                  // Process update in background thread (mutate + save + generate model)
                  let (entries, success) = {
                      let mut state = state.lock().unwrap();
-                     let AppState { vault, key, vault_path, password: state_pass, current_search, current_filter } = &mut *state;
+                     let AppState { vault, key, vault_path, password: state_pass, current_search, current_filter, vault_file: _ } = &mut *state;
                      
                      if let (Some(vault), Some(key), Some(path)) = (vault, key, vault_path) {
                          if let Some(entry) = vault.accounts.iter_mut().find(|e| e.id == id_clone) {

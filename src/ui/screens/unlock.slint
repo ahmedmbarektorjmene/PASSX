@@ -73,7 +73,7 @@ export component UnlockScreen inherits Rectangle {
                 Rectangle {
                     max-width: 420px;
                     height: 28px;
-                    border-radius: Theme.border-radius-pill;
+                    border-radius: Theme.border-radius;
                     background: Theme.surface;
                     border-width: 1px;
                     border-color: Theme.border-subtle;
@@ -82,12 +82,14 @@ export component UnlockScreen inherits Rectangle {
                         padding-right: 14px;
                         spacing: 6px;
                         alignment: center;
-                        Image {
-                            source: @image-url("../../../assets/folder.svg");
-                            width: 12px;
-                            height: 12px;
-                            colorize: Theme.text-muted;
-                            vertical-alignment: center;
+                        VerticalLayout {
+                            alignment: center;
+                            Image {
+                                source: @image-url("../../../assets/folder.svg");
+                                width: 12px;
+                                height: 12px;
+                                colorize: Theme.text-muted;
+                            }
                         }
 
                         Text {
@@ -121,6 +123,12 @@ export component UnlockScreen inherits Rectangle {
                             font-size: 13px;
                             edited(t) => {
                                 root.password = t;
+                            }
+                            accepted(t) => {
+                                root.password = t;
+                                if (root.password != "") {
+                                    root.unlock(root.password);
+                                }
                             }
                         }
                     }

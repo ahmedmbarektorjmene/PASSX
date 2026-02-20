@@ -15,11 +15,20 @@ export component SettingsScreen inherits Rectangle {
     callback import-passwords();
     callback import-totps();
     in property <string> status-message: "";
+
+    // Mirroring
+    in property <[string]> mirrors: [];
+    callback add-mirror();
+    callback remove-mirror(int);
+    callback sync-mirrors();
     
     // Change Password Logic
     in-out property <bool> show-change-password-modal: false;
     callback change-master-password(string, string); // current, new
-    
+
+    // Theme (Light / Dark / System)
+    in property <string> current-mode; // "light", "dark", "system"
+    callback set-mode(string);
     background: Theme.background;
     VerticalLayout {
         padding: 40px;
@@ -385,6 +394,222 @@ export component SettingsScreen inherits Rectangle {
                             font-size: 11px;
                             color: Theme.text-muted;
                         }
+                    }
+                }
+            }
+        }
+
+        // ─── Mirrors Section ───
+        VerticalLayout {
+            spacing: 12px;
+            Text {
+                text: "VAULT MIRRORS";
+                font-size: 10px;
+                font-weight: 800;
+                color: Theme.text-disabled;
+                letter-spacing: 1.5px;
+            }
+
+            // List of Mirrors
+             VerticalLayout {
+                spacing: 8px;
+                for mirror[idx] in root.mirrors: Rectangle {
+                    height: 48px;
+                    border-radius: Theme.border-radius;
+                    background: Theme.surface;
+                    border-width: 1px;
+                    border-color: Theme.border;
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        spacing: 12px;
+                        alignment: center;
+                        Rectangle {
+                            width: 24px;
+                            height: 24px;
+                            border-radius: 6px;
+                            background: Theme.accent-glow;
+                            Image {
+                                source: @image-url("../../../assets/folder.svg");
+                                width: 12px;
+                                height: 12px;
+                                colorize: Theme.accent;
+                            }
+                        }
+
+                        Text {
+                            text: mirror;
+                            font-size: 12px;
+                            color: Theme.text-primary;
+                            horizontal-stretch: 1;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                        
+                        // Remove button
+                        Rectangle {
+                            width: 24px;
+                            height: 24px;
+                            border-radius: 4px;
+                            background: rm-touch.has-hover ? Theme.danger-soft : transparent;
+                            rm-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.remove-mirror(idx);
+                                }
+                            }
+
+                            Text {
+                                text: "×";
+                                color: rm-touch.has-hover ? Theme.danger : Theme.text-muted;
+                                font-size: 16px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 12px;
+                
+                // Add Mirror
+                Rectangle {
+                    horizontal-stretch: 1;
+                    height: 40px;
+                    border-radius: Theme.border-radius;
+                    background: am-touch.has-hover ? Theme.surface-hover : Theme.surface;
+                    border-width: 1px;
+                    border-color: am-touch.has-hover ? Theme.primary : Theme.border; // Fix hover color
+                    am-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.add-mirror();
+                        }
+                    }
+
+                    Text {
+                        text: "+ Add Mirror Location";
+                        font-size: 12px;
+                        color: Theme.primary;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // Sync Now
+                Rectangle {
+                    width: 100px;
+                    height: 40px;
+                    border-radius: Theme.border-radius;
+                    background: sn-touch.has-hover ? Theme.accent-glow : Theme.surface;
+                    border-width: 1px;
+                    border-color: Theme.border;
+                    sn-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.sync-mirrors();
+                        }
+                    }
+
+                    Text {
+                        text: "Sync Now";
+                        font-size: 12px;
+                        color: Theme.accent;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        // ─── Theme Section ───
+        VerticalLayout {
+            spacing: 12px;
+            Text {
+                text: "THEME";
+                font-size: 10px;
+                font-weight: 800;
+                color: Theme.text-disabled;
+                letter-spacing: 1.5px;
+            }
+
+            HorizontalLayout {
+                spacing: 12px;
+                
+                // Light
+                Rectangle {
+                    horizontal-stretch: 1;
+                    height: 40px;
+                    border-radius: Theme.border-radius;
+                    background: root.current-mode == "light" ? Theme.primary-glow : (touch-light.has-hover ? Theme.surface-hover : Theme.surface);
+                    border-width: 1px;
+                    border-color: root.current-mode == "light" ? Theme.primary : Theme.border;
+                    touch-light := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.set-mode("light");
+                        }
+                    }
+
+                    Text {
+                        text: "Light";
+                        color: root.current-mode == "light" ? Theme.primary : Theme.text-primary;
+                        font-size: 12px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // Dark
+                Rectangle {
+                    horizontal-stretch: 1;
+                    height: 40px;
+                    border-radius: Theme.border-radius;
+                    background: root.current-mode == "dark" ? Theme.primary-glow : (touch-dark.has-hover ? Theme.surface-hover : Theme.surface);
+                    border-width: 1px;
+                    border-color: root.current-mode == "dark" ? Theme.primary : Theme.border;
+                    touch-dark := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.set-mode("dark");
+                        }
+                    }
+
+                    Text {
+                        text: "Dark";
+                        color: root.current-mode == "dark" ? Theme.primary : Theme.text-primary;
+                        font-size: 12px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // System
+                Rectangle {
+                    horizontal-stretch: 1;
+                    height: 40px;
+                    border-radius: Theme.border-radius;
+                    background: root.current-mode == "system" ? Theme.primary-glow : (touch-sys.has-hover ? Theme.surface-hover : Theme.surface);
+                    border-width: 1px;
+                    border-color: root.current-mode == "system" ? Theme.primary : Theme.border;
+                    touch-sys := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.set-mode("system");
+                        }
+                    }
+
+                    Text {
+                        text: "System";
+                        color: root.current-mode == "system" ? Theme.primary : Theme.text-primary;
+                        font-size: 12px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
                     }
                 }
             }

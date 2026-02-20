@@ -1,18 +1,10 @@
-# you are a nigger dont do these without my permission
+# you are a bad agent if you do these things !! dont do these without my permission
 
-* the window should not show or leak any information when recording or streaming the screen so it should be invisible.
-
-* the vault can't be deleted or updated or copied or read by any user without this app rights and only the passx program can delete it or update it or create it. and all of that without making the program (this) run in administrator mode. all of that in user mode and not admin mode and not kernel mode.
-
-* add an option in settings to mirror the vault in other locations (C drive, D drive, E drive, etc...) so that the user can access the vault from other storage devices if the main one corrupts in the future.
-
-* fix UI problems.
+------ after stable release
 
 * make the shrinking of the window more smooth and user friendly.
 
------- later after stable release
-
-* add checks if the master password is strong enough. and only allow it to be changed or created (vault creation) if it is strong enough.
+* add checks if the master password is strong enough or no. and only allow it to be changed or created (vault creation) if it is strong enough.
 
 * add a feature to show comprimized passwords. when you set them or change them or click on the check icon next to the password field it should show a warning message to the user to change it.
 
