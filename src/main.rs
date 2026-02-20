@@ -19,6 +19,17 @@ fn main() {
     // 0. Anti-Debug Check
     #[cfg(windows)]
     unsafe {
+        // Enforce Administrator Privileges
+        if !passx::security::admin::is_admin() {
+            if passx::security::admin::relaunch_as_admin() {
+                // Successfully launched UAC prompt and new process
+                std::process::exit(0);
+            } else {
+                eprintln!("Administrator privileges are required to run PASSX.");
+                std::process::exit(1);
+            }
+        }
+
         // 0. Antivirus Check (Must run before ChildProcess policy blocks PowerShell)
         passx::security::antivirus::check_antivirus_availability();
 

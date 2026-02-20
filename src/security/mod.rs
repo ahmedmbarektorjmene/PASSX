@@ -19,6 +19,7 @@ use crate::runtime::{integrity, invariants};
 
 pub mod anti_injection;
 pub mod antivirus;
+pub mod admin;
 
 static INIT: Once = Once::new();
 static BASELINE_HASH: OnceLock<[u8; 32]> = OnceLock::new();
@@ -199,8 +200,21 @@ pub fn unprotect_memory(ptr: *mut u8, len: usize) -> bool {
 
 /// Starts a background thread for continuous security monitoring.
 pub fn start_security_monitor() {
-    thread::spawn(|| {
+    let watchdog = crate::session::watchdog::Watchdog::new();
+    let heartbeat = watchdog.get_heartbeat();
+
+    // Start the watcher thread to monitor THIS thread
+    watchdog.start_watcher(3, || {
+        // If this panic_action executes, it means our security monitor thread was suspended
+        eprintln!("[SECURITY] FATAL: Security monitor thread was suspended. Terminating process to prevent memory extraction or injection!");
+        std::process::exit(9);
+    });
+
+    thread::spawn(move || {
         loop {
+            // Watchdog Heartbeat 
+            crate::session::watchdog::Watchdog::beat(&heartbeat);
+
             // 1. Checks for user-mode debuggers
             if virtualization::is_debugged() {
                  std::process::exit(1);
