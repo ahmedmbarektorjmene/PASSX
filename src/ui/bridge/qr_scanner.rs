@@ -145,7 +145,7 @@ pub fn scan_qr_from_screen() -> Result<QrResult, String> {
 
     // Try each monitor for a QR code
     for (i, monitor) in monitors.iter().enumerate() {
-        println!("[QR] Capturing monitor {} ({}x{})", i, monitor.width(), monitor.height());
+        println!("[QR] Capturing monitor {} ({:?}x{:?})", i, monitor.width(), monitor.height());
 
         let capture = monitor
             .capture_image()

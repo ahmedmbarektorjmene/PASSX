@@ -119,7 +119,6 @@ PASSX/
 | Platform APIs | Windows crate (NCrypt, DACL, Mitigation Policies) |
 | TOTP | totp-rs with QR code support |
 | Serialization | serde, bincode, serde_json, CSV |
-| Async | Tokio |
 | Testing | proptest, tempfile |
 
 ## Contributing
