@@ -60,16 +60,16 @@ fn main() {
         }
     }
 
-    // // 1. Runtime Integrity Check
-    // match integrity::verify_self_integrity() {
-    //     Ok(true) => {},
-    //     Ok(false) => {
-    //         std::process::exit(12);
-    //     },
-    //     Err(_e) => {
-    //         std::process::exit(13);
-    //     }
-    // }
+    // 1. Runtime Integrity Check
+    match integrity::verify_self_integrity() {
+        Ok(true) => {}
+        Ok(false) => {
+            std::process::exit(12);
+        }
+        Err(_e) => {
+            std::process::exit(13);
+        }
+    }
 
     // 2. TPM Requirements Check
     // We try to create a context to verify TPM works, but we don't crash if it fails.
