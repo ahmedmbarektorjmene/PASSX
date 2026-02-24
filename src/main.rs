@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use passx::runtime::integrity;
 use passx::tpm::sealing;
 use passx::ui; // Expose seal_key or better a `tpm::check_availability()` function
 
@@ -17,16 +18,16 @@ fn main() {
     // 0. Anti-Debug Check
     #[cfg(windows)]
     {
-        // // Enforce Administrator Privileges
-        // if !passx::security::admin::is_admin() {
-        //     if passx::security::admin::relaunch_as_admin() {
-        //         // Successfully launched UAC prompt and new process
-        //         std::process::exit(0);
-        //     } else {
-        //         eprintln!("Administrator privileges are required to run PASSX.");
-        //         std::process::exit(10);
-        //     }
-        // }
+        // Enforce Administrator Privileges
+        if !passx::security::admin::is_admin() {
+            if passx::security::admin::relaunch_as_admin() {
+                // Successfully launched UAC prompt and new process
+                std::process::exit(0);
+            } else {
+                eprintln!("Administrator privileges are required to run PASSX.");
+                std::process::exit(10);
+            }
+        }
 
         // 0. Antivirus Check (Must run before ChildProcess policy blocks PowerShell)
         passx::security::antivirus::check_antivirus_availability();
