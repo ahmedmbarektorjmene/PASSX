@@ -60,3 +60,32 @@ pub fn generate_salt() -> [u8; SALT_LEN] {
     salt
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_derive_key_consistency() {
+        let password = b"P@$$w0rd";
+        let salt = generate_salt();
+
+        let key1 = derive_key(password, &salt, Argon2ParamsVersion::V1_2024).unwrap();
+        let key2 = derive_key(password, &salt, Argon2ParamsVersion::V1_2024).unwrap();
+
+        assert_eq!(key1.len(), KEY_LEN);
+        assert_eq!(key1.as_slice(), key2.as_slice(), "Same password+salt should yield same key");
+    }
+
+    #[test]
+    fn test_derive_key_different_salts() {
+        let password = b"password123";
+        let salt1 = generate_salt();
+        let salt2 = generate_salt();
+
+        let key1 = derive_key(password, &salt1, Argon2ParamsVersion::V1_2024).unwrap();
+        let key2 = derive_key(password, &salt2, Argon2ParamsVersion::V1_2024).unwrap();
+
+        assert_ne!(key1.as_slice(), key2.as_slice(), "Different salts should yield different keys");
+    }
+}
+

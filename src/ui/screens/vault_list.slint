@@ -10,9 +10,13 @@ export component VaultListScreen inherits Rectangle {
     callback create-managed-vault(string, string, int); // name, password, mode
     callback open-external();
     callback delete-vault(string);
+    callback request-external-create();
+    callback create-external-vault-confirmed(string, int); // password, mode
     
     // Modal State
     in-out property <bool> show-create-modal: false;
+    in-out property <bool> is-external-mode: false;
+    in property <string> new-external-path: "";
     property <string> new-vault-name: "";
     property <string> new-vault-password: "";
     property <string> new-vault-confirm: "";
@@ -167,9 +171,17 @@ export component VaultListScreen inherits Rectangle {
                 }
             }
 
+            SecondaryButton {
+                text: "Create External Vault...";
+                clicked => {
+                    root.request-external-create();
+                }
+            }
+
             PrimaryButton {
                 text: "Create New Vault";
                 clicked => {
+                    root.is-external-mode = false;
                     root.show-create-modal = true;
                     // Reset fields
                     root.new-vault-name = "";
@@ -202,15 +214,15 @@ export component VaultListScreen inherits Rectangle {
                 padding: 28px;
                 spacing: 20px;
                 Text {
-                    text: "Create Managed Vault";
+                    text: root.is-external-mode ? "Create Portable Vault" : "Create Managed Vault";
                     font-size: 18px;
                     font-weight: 800;
                     color: Theme.text-primary;
                     horizontal-alignment: center;
                 }
 
-                // Name
-                VerticalLayout {
+                // Name or Path
+                if (!root.is-external-mode): VerticalLayout {
                     spacing: 6px;
                     Text {
                         text: "VAULT NAME";
@@ -225,6 +237,22 @@ export component VaultListScreen inherits Rectangle {
                         edited(t) => {
                             root.new-vault-name = t;
                         }
+                    }
+                }
+                if (root.is-external-mode): VerticalLayout {
+                    spacing: 6px;
+                    Text {
+                        text: "EXTERNAL PATH";
+                        font-size: 10px;
+                        color: Theme.text-secondary;
+                        font-weight: 700;
+                    }
+
+                    Text {
+                        text: root.new-external-path;
+                        font-size: 11px;
+                        color: Theme.primary;
+                        wrap: word-wrap;
                     }
                 }
 
@@ -344,9 +372,13 @@ export component VaultListScreen inherits Rectangle {
                     PrimaryButton {
                         text: "Create";
                         width: 120px;
-                        enabled: root.new-vault-name != "" && root.new-vault-password != "" && root.new-vault-password == root.new-vault-confirm;
+                        enabled: (root.new-vault-password != "" && root.new-vault-password == root.new-vault-confirm) && (root.is-external-mode || root.new-vault-name != "");
                         clicked => {
-                            root.create-managed-vault(root.new-vault-name, root.new-vault-password, root.new-vault-mode);
+                            if (root.is-external-mode) {
+                                root.create-external-vault-confirmed(root.new-vault-password, root.new-vault-mode);
+                            } else {
+                                root.create-managed-vault(root.new-vault-name, root.new-vault-password, root.new-vault-mode);
+                            }
                             root.show-create-modal = false;
                         }
                     }

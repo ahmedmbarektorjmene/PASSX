@@ -8,8 +8,10 @@ use windows::Win32::System::Threading::{
     CREATE_SUSPENDED, ResumeThread
 };
 use windows::Win32::System::Diagnostics::Debug::{
-    ReadProcessMemory, WriteProcessMemory, GetThreadContext, CONTEXT, CONTEXT_ALL_AMD64
+    ReadProcessMemory, WriteProcessMemory, GetThreadContext, SetThreadContext
 };
+// Use Threading for Thread Context depending on windows-rs version
+use windows::Win32::System::Diagnostics::Debug::{CONTEXT, CONTEXT_ALL_AMD64};
 use windows::Win32::Foundation::{CloseHandle, FALSE, HANDLE, NTSTATUS};
 use windows::Win32::System::Memory::{
     VirtualAllocEx, MEM_COMMIT, MEM_RESERVE, PAGE_EXECUTE_READWRITE
@@ -139,6 +141,7 @@ fn test_true_process_hollowing_simulation() {
             ctx.0.Rip = allocated_base as u64;
             // Optional: Set RCX to entry logic if mimicking CRT start
             ctx.0.Rcx = allocated_base as u64; 
+            SetThreadContext(h_thread, &ctx.0).expect("SetThreadContext failed");
         }
 
 

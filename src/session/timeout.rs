@@ -25,3 +25,39 @@ where
         }
     });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    #[test]
+    fn test_monitor_activity() {
+        // Create state with 1 second timeout
+        let state = Arc::new(Mutex::new(SessionState::new(1)));
+        
+        // Unlock it initially
+        {
+            let mut s = state.lock().unwrap();
+            s.unlock();
+        }
+        
+        let callback_fired = Arc::new(AtomicBool::new(false));
+        let cf_clone = callback_fired.clone();
+        
+        monitor_activity(state.clone(), move || {
+            cf_clone.store(true, Ordering::SeqCst);
+        });
+        
+        // Wait 2 seconds (1s for timeout + 1s for the monitor loop sleep)
+        thread::sleep(Duration::from_millis(2500));
+        
+        assert!(callback_fired.load(Ordering::SeqCst), "Lock callback was not fired by monitor_activity");
+        
+        // State should be locked
+        {
+            let s = state.lock().unwrap();
+            assert_eq!(s.lock_state, crate::session::state::LockState::Locked);
+        }
+    }
+}

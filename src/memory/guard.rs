@@ -125,6 +125,14 @@ impl SecureBuffer {
         self.len() == 0
     }
 
+    pub fn as_slice(&self) -> &[u8] {
+        self
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+        self
+    }
+
     /// Seal the memory (make it NOACCESS) to prevent reading.
     /// This effectively hides the secret from memory scanners.
     /// Now also encrypts data using DPAPI before sealing.
@@ -224,7 +232,10 @@ impl Zeroize for SecureBuffer {
     fn zeroize(&mut self) -> () {
         if self.layout.size() > 0 {
             unsafe {
-                ptr::write_bytes(self.ptr.as_ptr(), 0, self.layout.size());
+                let ptr = self.ptr.as_ptr();
+                for i in 0..self.layout.size() {
+                    std::ptr::write_volatile(ptr.add(i), 0);
+                }
                 std::sync::atomic::fence(std::sync::atomic::Ordering::SeqCst);
             }
         }
@@ -284,6 +295,62 @@ unsafe impl Sync for SecureBuffer {}
 
 impl Clone for SecureBuffer {
     fn clone(&self) -> Self {
-        Self::from_slice(&self).expect("Failed to allocate secure buffer clone")
+        // To clone securely, we must create a new secure allocation and copy
+        let mut new_buf = SecureBuffer::new(self.len()).unwrap(); // Panic on OOM is acceptable for security
+        new_buf.copy_from_slice(self);
+        new_buf
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_secure_buffer_lifecycle() {
+        let mut buf = SecureBuffer::new(32).unwrap();
+        assert_eq!(buf.len(), 32);
+        
+        // Write data
+        buf[0] = 42;
+        buf[31] = 99;
+        assert_eq!(buf[0], 42);
+        
+        // Zeroize manually
+        buf.zeroize();
+        assert_eq!(buf[0], 0);
+        assert_eq!(buf[31], 0);
+    }
+
+    #[test]
+    fn test_secure_buffer_from_slice() {
+        let data = [1, 2, 3, 4];
+        let buf = SecureBuffer::from_slice(&data).unwrap();
+        assert_eq!(buf.len(), 4);
+        assert_eq!(buf[0], 1);
+        assert_eq!(buf[3], 4);
+    }
+
+    #[test]
+    fn test_secure_buffer_clone() {
+        let buf1 = SecureBuffer::from_slice(&[10, 20]).unwrap();
+        let buf2 = buf1.clone();
+        
+        assert_eq!(buf1.as_ref(), buf2.as_ref());
+        // Their pointers should be different
+        assert_ne!(buf1.as_ptr(), buf2.as_ptr());
+    }
+
+    #[test]
+    fn test_secure_buffer_seal_unseal() {
+        let mut buf = SecureBuffer::new(16).unwrap();
+        buf[0] = 0xAA;
+        
+        buf.seal();
+        // If we tried to read buf[0] here, it would segfault in normal environments
+        // We just prove the API succeeds
+        buf.unseal();
+        
+        assert_eq!(buf[0], 0xAA);
     }
 }

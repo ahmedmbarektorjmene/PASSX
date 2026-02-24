@@ -34,12 +34,9 @@ impl Default for AppPrefs {
 
 impl AppPrefs {
     fn get_prefs_path() -> Option<PathBuf> {
-        if let Some(base_dirs) = directories::BaseDirs::new() {
-            let config_dir = base_dirs.config_dir().join("passx");
-            if !config_dir.exists() {
-                let _ = fs::create_dir_all(&config_dir);
-            }
-            return Some(config_dir.join("config.json"));
+        if let Ok(mut exe_path) = std::env::current_exe() {
+            exe_path.pop(); // Remove the executable name (passx.exe), leaving the directory
+            return Some(exe_path.join("config.json"));
         }
         None
     }

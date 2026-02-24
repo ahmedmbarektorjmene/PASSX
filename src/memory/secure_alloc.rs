@@ -78,3 +78,24 @@ impl SecureAllocator {
 
 // Global allocator implementation if we wanted to enforce it globally,
 // but for now we expose static methods for dedicated use.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_secure_alloc_dealloc() {
+        unsafe {
+            let layout = Layout::from_size_align(1024, 1).unwrap();
+            let ptr = SecureAllocator::alloc_locked(layout);
+            
+            assert!(!ptr.is_null());
+            
+            // Memory should be accessible
+            ptr.write_volatile(0x55);
+            assert_eq!(ptr.read_volatile(), 0x55);
+            
+            SecureAllocator::dealloc_locked(ptr, layout);
+        }
+    }
+}

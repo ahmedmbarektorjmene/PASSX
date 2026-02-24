@@ -1,22 +1,20 @@
-use std::path::Path;
+use std::ffi::CString;
 use std::fs::File;
 use std::os::windows::io::FromRawHandle;
+use std::path::Path;
+use windows::core::PCSTR;
 use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
-use windows::Win32::Storage::FileSystem::{
-    CreateFileA, FILE_SHARE_NONE, OPEN_EXISTING, CREATE_NEW, FILE_ATTRIBUTE_NORMAL
+use windows::Win32::Security::Authorization::{
+    ConvertSidToStringSidA, ConvertStringSecurityDescriptorToSecurityDescriptorA, SDDL_REVISION_1,
 };
 use windows::Win32::Security::{
-    PSECURITY_DESCRIPTOR, DACL_SECURITY_INFORMATION,
-    PROTECTED_DACL_SECURITY_INFORMATION, SetFileSecurityA,
-    GetTokenInformation, TokenUser, TOKEN_USER, TOKEN_QUERY
+    GetTokenInformation, SetFileSecurityA, TokenUser, DACL_SECURITY_INFORMATION,
+    PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, TOKEN_QUERY, TOKEN_USER,
 };
-use windows::Win32::Security::Authorization::{
-    ConvertStringSecurityDescriptorToSecurityDescriptorA, ConvertSidToStringSidA,
-    SDDL_REVISION_1
+use windows::Win32::Storage::FileSystem::{
+    CreateFileA, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_NONE, OPEN_EXISTING,
 };
-use windows::Win32::System::Threading::{OpenProcessToken, GetCurrentProcess};
-use windows::core::PCSTR;
-use std::ffi::CString;
+use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
 /// Gets the current user's SID as a string (e.g. "S-1-5-21-...").
 fn get_current_user_sid() -> std::io::Result<String> {
@@ -29,13 +27,7 @@ fn get_current_user_sid() -> std::io::Result<String> {
 
         // First call to get required buffer size
         let mut return_length: u32 = 0;
-        let _ = GetTokenInformation(
-            token_handle,
-            TokenUser,
-            None,
-            0,
-            &mut return_length
-        );
+        let _ = GetTokenInformation(token_handle, TokenUser, None, 0, &mut return_length);
 
         // Allocate buffer and get the actual token info
         let mut buffer = vec![0u8; return_length as usize];
@@ -44,8 +36,9 @@ fn get_current_user_sid() -> std::io::Result<String> {
             TokenUser,
             Some(buffer.as_mut_ptr() as *mut _),
             return_length,
-            &mut return_length
-        ).map_err(|e| std::io::Error::from_raw_os_error(e.code().0))?;
+            &mut return_length,
+        )
+        .map_err(|e| std::io::Error::from_raw_os_error(e.code().0))?;
 
         let _ = windows::Win32::Foundation::CloseHandle(token_handle);
 
@@ -71,18 +64,20 @@ fn get_current_user_sid() -> std::io::Result<String> {
 /// This prevents other processes (like Explorer) from reading/copying the file while it's open.
 pub fn open_exclusive<P: AsRef<Path>>(path: P) -> std::io::Result<File> {
     let path_str = path.as_ref().to_string_lossy().to_string();
-    let c_path = CString::new(path_str).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+    let c_path = CString::new(path_str)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
 
     unsafe {
         let handle = CreateFileA(
             PCSTR::from_raw(c_path.as_ptr() as *const u8),
             GENERIC_READ.0 | GENERIC_WRITE.0, // Read/Write access
-            FILE_SHARE_NONE, // Exclusive locking!
+            FILE_SHARE_NONE,                  // Exclusive locking!
             None,
             OPEN_EXISTING,
             FILE_ATTRIBUTE_NORMAL,
-            None
-        ).map_err(|e| std::io::Error::from_raw_os_error(e.code().0))?;
+            None,
+        )
+        .map_err(|e| std::io::Error::from_raw_os_error(e.code().0))?;
 
         Ok(File::from_raw_handle(handle.0 as *mut _))
     }
@@ -91,7 +86,8 @@ pub fn open_exclusive<P: AsRef<Path>>(path: P) -> std::io::Result<File> {
 /// Creates a new file with exclusive access.
 pub fn create_exclusive<P: AsRef<Path>>(path: P) -> std::io::Result<File> {
     let path_str = path.as_ref().to_string_lossy().to_string();
-    let c_path = CString::new(path_str).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+    let c_path = CString::new(path_str)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
 
     unsafe {
         let handle = CreateFileA(
@@ -101,8 +97,9 @@ pub fn create_exclusive<P: AsRef<Path>>(path: P) -> std::io::Result<File> {
             None,
             CREATE_NEW,
             FILE_ATTRIBUTE_NORMAL,
-            None
-        ).map_err(|e| std::io::Error::from_raw_os_error(e.code().0))?;
+            None,
+        )
+        .map_err(|e| std::io::Error::from_raw_os_error(e.code().0))?;
 
         Ok(File::from_raw_handle(handle.0 as *mut _))
     }
@@ -112,47 +109,43 @@ pub fn create_exclusive<P: AsRef<Path>>(path: P) -> std::io::Result<File> {
 /// This persists even when the application is closed.
 /// NOTE: The file must NOT be exclusively locked when calling this (close handle first).
 pub fn apply_strict_acls<P: AsRef<Path>>(path: P) -> std::io::Result<()> {
-    let user_sid = get_current_user_sid()?;
-    
-    // D:P = Protected DACL
-    // (D;;SDWO;;;SID) = Deny Delete + Write Owner to user (prevents deletion/rename)
-    // (A;;GRGW;;;SID) = Allow Generic Read + Generic Write to user (app can still read/write)
+    // D:P = Protected DACL (blocks inheritance)
     // (A;;GA;;;SY)    = Allow Generic All to SYSTEM
     // (A;;GA;;;BA)    = Allow Generic All to Built-in Administrators
-    let sddl = format!(
-        "D:P(D;;SDWO;;;{})(A;;GRGW;;;{})(A;;GA;;;SY)(A;;GA;;;BA)",
-        user_sid, user_sid
-    );
+    // By omitting the standard user entirely, they have no access.
+    // Because PASSX runs as Administrator, it will match the 'BA' rule.
+    let sddl = "D:P(A;;GA;;;SY)(A;;GA;;;BA)".to_string();
     let c_sddl = CString::new(sddl).unwrap();
     let path_str = path.as_ref().to_string_lossy().to_string();
-    let c_path = CString::new(path_str).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+    let c_path = CString::new(path_str)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
 
     unsafe {
         let mut sd: PSECURITY_DESCRIPTOR = PSECURITY_DESCRIPTOR(std::ptr::null_mut());
         let mut sd_size = 0;
-        
+
         let res = ConvertStringSecurityDescriptorToSecurityDescriptorA(
             PCSTR::from_raw(c_sddl.as_ptr() as *const u8),
             SDDL_REVISION_1,
             &mut sd,
-            Some(&mut sd_size)
+            Some(&mut sd_size),
         );
 
         if let Err(e) = res {
-             return Err(std::io::Error::from_raw_os_error(e.code().0));
+            return Err(std::io::Error::from_raw_os_error(e.code().0));
         }
 
         let res = SetFileSecurityA(
             PCSTR::from_raw(c_path.as_ptr() as *const u8),
-            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION, 
-            sd
+            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+            sd,
         );
 
         use windows::Win32::Foundation::{LocalFree, HLOCAL};
         let _ = LocalFree(HLOCAL(sd.0));
 
         if let Err(e) = res {
-             return Err(std::io::Error::from_raw_os_error(e.code().0));
+            return Err(std::io::Error::from_raw_os_error(e.code().0));
         }
     }
 
@@ -162,12 +155,13 @@ pub fn apply_strict_acls<P: AsRef<Path>>(path: P) -> std::io::Result<()> {
 /// Removes strict ACLs, essentially resetting permissions so the file can be deleted.
 pub fn remove_strict_acls<P: AsRef<Path>>(path: P) -> std::io::Result<()> {
     let user_sid = get_current_user_sid()?;
-    
+
     // Grant Generic All to the current user (full access restored)
     let sddl = format!("D:(A;;GA;;;{})", user_sid);
     let c_sddl = CString::new(sddl).unwrap();
     let path_str = path.as_ref().to_string_lossy().to_string();
-    let c_path = CString::new(path_str).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+    let c_path = CString::new(path_str)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
 
     unsafe {
         let mut sd: PSECURITY_DESCRIPTOR = PSECURITY_DESCRIPTOR(std::ptr::null_mut());
@@ -177,24 +171,24 @@ pub fn remove_strict_acls<P: AsRef<Path>>(path: P) -> std::io::Result<()> {
             PCSTR::from_raw(c_sddl.as_ptr() as *const u8),
             SDDL_REVISION_1,
             &mut sd,
-            Some(&mut sd_size)
+            Some(&mut sd_size),
         );
 
         if let Err(e) = res {
-             return Err(std::io::Error::from_raw_os_error(e.code().0));
+            return Err(std::io::Error::from_raw_os_error(e.code().0));
         }
 
         let res = SetFileSecurityA(
             PCSTR::from_raw(c_path.as_ptr() as *const u8),
-            DACL_SECURITY_INFORMATION, 
-            sd
+            DACL_SECURITY_INFORMATION,
+            sd,
         );
 
         use windows::Win32::Foundation::{LocalFree, HLOCAL};
         let _ = LocalFree(HLOCAL(sd.0));
 
         if let Err(e) = res {
-             return Err(std::io::Error::from_raw_os_error(e.code().0));
+            return Err(std::io::Error::from_raw_os_error(e.code().0));
         }
     }
 

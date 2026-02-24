@@ -89,3 +89,44 @@ impl TotpEntry {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_account_entry_creation() {
+        let title = "Test Account".to_string();
+        let username = "testuser".to_string();
+        let password = b"supersecret";
+        
+        let entry = AccountEntry::new(title.clone(), username.clone(), password, None).unwrap();
+        
+        assert_eq!(entry.title, title);
+        assert_eq!(entry.username, username);
+        assert!(!entry.id.is_empty());
+        assert_eq!(entry.deleted, false);
+        // We can't easily check SecureBuffer contents directly without unsealing/exposing,
+        // but its existence implies success.
+    }
+
+    #[test]
+    fn test_account_entry_password_update() {
+        let mut entry = AccountEntry::new("T".to_string(), "U".to_string(), b"old", None).unwrap();
+        let initial_updated = entry.updated_at;
+        
+        // Wait briefly so timestamp can change (or we just accept it might be same second, tests execute fast)
+        // To ensure it, we can just check if update_password returns true.
+        assert!(entry.update_password(b"newpassword"));
+        // updated_at should be >= initial
+        assert!(entry.updated_at >= initial_updated);
+    }
+
+    #[test]
+    fn test_totp_entry_creation() {
+        let entry = TotpEntry::new("Issuer".to_string(), "Account".to_string(), b"secret", None).unwrap();
+        assert_eq!(entry.issuer, "Issuer");
+        assert_eq!(entry.account_name, "Account");
+        assert!(!entry.id.is_empty());
+    }
+}

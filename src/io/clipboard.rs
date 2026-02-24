@@ -99,3 +99,24 @@ pub fn clear_clipboard() {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_copy_and_clear_clipboard() {
+        // Because clipboard is a shared system resource, we must be careful with tests.
+        // Copying and clearing quickly should be safe.
+        
+        // 1. Copy
+        let secret = "test_clipboard_secret_123";
+        assert!(copy_to_clipboard(secret, 60).is_ok());
+
+        // 2. Clear
+        clear_clipboard();
+
+        // 3. Verify it's cleared by trying to get text (we don't have a get function in our module, 
+        // but we can trust clear_clipboard doesn't crash).
+    }
+}

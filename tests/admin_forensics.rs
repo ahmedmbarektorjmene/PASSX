@@ -91,30 +91,28 @@ fn test_memory_forensics_zeroization() {
 }
 
 fn victim_behavior() {
-    use passx::memory::guard::SecureBuffer;
     
     println!("VICTIM_STARTING");
     {
         // Generate a dynamic secret that is NOT in the binary
         // We simulate a user typing a password or generating a key
-        // Ensure it's not on stack as a literal.
-        let mut dynamic_secret = vec![0u8; 32];
-        // simple pseudo-random fill without external dep for test
-        let pid = std::process::id();
-        for i in 0..32 {
-            dynamic_secret[i] = ((pid + i as u32) % 255) as u8;
-        }
+        // Direct allocation into SecureBuffer prevents standard Vec leaks!
+        let mut _secret = passx::memory::guard::SecureBuffer::new(32).unwrap();
+        passx::crypto::random::SecureRandom::fill(&mut *_secret);
         
-        let hex_secret = hex::encode(&dynamic_secret);
+        let mut hex_secret = hex::encode(&*_secret);
         println!("SECRET_VALUE:{}", hex_secret);
+        std::io::Write::flush(&mut std::io::stdout()).unwrap();
         
-        let _secret = SecureBuffer::from_slice(&dynamic_secret).unwrap();
-        // Clear the vector immediately to ensure only SecureBuffer holds it?
-        // Vec drop doesn't zeroize by default, so we must zeroize the source vec!
-        // This is a crucial part of the test: The source must be cleared too.
         unsafe {
-            std::ptr::write_bytes(dynamic_secret.as_mut_ptr(), 0, dynamic_secret.len());
+            // To be absolutely certain we zeroize the String's backing buffer, we get its vec representation:
+            let vec_repr = hex_secret.as_mut_vec();
+            let ptr = vec_repr.as_mut_ptr();
+            for i in 0..vec_repr.capacity() {
+                std::ptr::write_volatile(ptr.add(i), 0);
+            }
         }
+        std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
         
         println!("READY_WITH_SECRET");
         // Secret is dropped here at end of scope
@@ -183,8 +181,12 @@ unsafe fn scan_process_memory(pid: u32, pattern: &[u8]) -> bool {
             ).is_ok() {
                 // Simple search
                 let chunk = &buffer[..bytes_read];
-                for window in chunk.windows(pattern.len()) {
+                for (offset, window) in chunk.windows(pattern.len()).enumerate() {
                     if window == pattern {
+                        println!("[ATTACKER] Found pattern at Absolute Address: {:p}, Region Base: {:p}, Size: {}, Protect: {:?}, Type: {:?}", 
+                            (mem_info.BaseAddress as usize + offset) as *const u8,
+                            mem_info.BaseAddress, mem_info.RegionSize, mem_info.Protect, mem_info.Type
+                        );
                         let _ = CloseHandle(h_process);
                         return true;
                     }

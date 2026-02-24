@@ -1,6 +1,6 @@
 # you are a bad agent if you do these things !! dont do these without my permission
 
------- after stable release
+------ after security release
 
 * make the shrinking of the window more smooth and user friendly.
 

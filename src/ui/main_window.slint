@@ -361,6 +361,17 @@ component MainWindow inherits Window {
         create-managed-vault(name, pass, mode) => {
             root.create-managed-vault(name, pass, mode);
         }
+        request-external-create => {
+            root.browse-for-new-vault();
+            if (root.vault-path != "") {
+                self.is-external-mode = true;
+                self.new-external-path = root.vault-path;
+                self.show-create-modal = true;
+            }
+        }
+        create-external-vault-confirmed(pass, mode) => {
+            root.create-new-vault-confirmed(pass, mode);
+        }
         open-external => {
             root.browse-for-existing-vault();
         }

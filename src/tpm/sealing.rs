@@ -132,3 +132,29 @@ pub fn check_tpm_availability() -> Result<(), TpmError> {
         let _ = NCryptFreeObject::<NCRYPT_PROV_HANDLE>(p);
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[ignore] // Requires hardware TPM or Windows CNG TPM simulator
+    fn test_tpm_sealing_cycle() {
+        // Skip if TPM unavailable
+        if check_tpm_availability().is_err() {
+            println!("Skipping TPM test since no TPM provider could be opened.");
+            return;
+        }
+
+        let secret = b"my_hardware_sealed_secret";
+        let buf = SecureBuffer::from_slice(secret).unwrap();
+
+        // Seal
+        let sealed = seal_key(&buf).expect("Failed to seal key");
+        assert!(!sealed.is_empty());
+
+        // Unseal
+        let unsealed = unseal_key(&sealed).expect("Failed to unseal key");
+        assert_eq!(unsealed.as_slice(), secret);
+    }
+}

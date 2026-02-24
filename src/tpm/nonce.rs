@@ -65,3 +65,17 @@ impl TpmNonce {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[ignore] // Requires hardware TPM
+    fn test_tpm_nonce_hardware() {
+        let mut nonce = TpmNonce::new(0x01500001).unwrap();
+        // Since this requires hardware, we just ensure it compiles.
+        // We'd expect this to fail if no TPM is present or provisioned.
+        let _ = nonce.read();
+    }
+}

@@ -18,3 +18,17 @@ impl SecureRandom {
         OsRng.fill_bytes(buf);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_secure_random_bytes() {
+        let buf1 = SecureRandom::bytes(32).unwrap();
+        let buf2 = SecureRandom::bytes(32).unwrap();
+        
+        assert_eq!(buf1.len(), 32);
+        assert_ne!(buf1.as_slice(), buf2.as_slice(), "Consecutive random generations should differ");
+    }
+}

@@ -100,3 +100,48 @@ pub fn decrypt(
 
     Ok(buffer)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_encryption_decryption_cycle() {
+        let key = vec![0u8; KEY_SIZE]; // 32 bytes
+        let plaintext = b"test message 123";
+        let aad = b"test aad";
+
+        // Encrypt
+        let (ciphertext, nonce, tag) = encrypt(&key, plaintext, aad).unwrap();
+        assert_ne!(ciphertext.as_slice(), plaintext); // Sanity check
+
+        // Decrypt
+        let decrypted = decrypt(&key, &nonce, &tag, ciphertext.as_slice(), aad).unwrap();
+        assert_eq!(decrypted.as_slice(), plaintext);
+    }
+
+    #[test]
+    fn test_decryption_with_wrong_key() {
+        let key = vec![0u8; KEY_SIZE];
+        let wrong_key = vec![1u8; KEY_SIZE];
+        let plaintext = b"secret";
+        
+        let (ciphertext, nonce, tag) = encrypt(&key, plaintext, b"").unwrap();
+        
+        let res = decrypt(&wrong_key, &nonce, &tag, ciphertext.as_slice(), b"");
+        assert!(matches!(res, Err(CryptoError::DecryptionFailed)));
+    }
+
+    #[test]
+    fn test_derive_subkey() {
+        let master_key = vec![0u8; KEY_SIZE];
+        let info1 = b"context A";
+        let info2 = b"context B";
+
+        let subkey1 = derive_subkey(&master_key, info1).unwrap();
+        let subkey2 = derive_subkey(&master_key, info2).unwrap();
+
+        assert_eq!(subkey1.len(), KEY_SIZE);
+        assert_ne!(subkey1.as_slice(), subkey2.as_slice(), "Different contexts should yield different keys");
+    }
+}
